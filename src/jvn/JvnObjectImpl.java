@@ -11,6 +11,7 @@ public class JvnObjectImpl implements JvnObject {
 	
 	private String lockState = LockStates.NL;
 	private Serializable obj = null;
+	private int id = 0;
 	
 	
 	
@@ -20,58 +21,64 @@ public class JvnObjectImpl implements JvnObject {
 
 	@Override
 	public void jvnLockRead() throws JvnException {
-		// TODO Auto-generated method stub
-
+		switch(lockState) {
+			case LockStates.RC:
+				lockState = LockStates.R;
+			break;
+			case LockStates.W:
+				lockState = LockStates.RWC;
+			break;
+			default:
+				JvnServerImpl js = JvnServerImpl.jvnGetServer();
+				Serializable retObj = js.jvnLockRead(id);
+				if(retObj != null) {
+					lockState = LockStates.R;
+					obj = retObj;
+				}
+			break;
+		}
 	}
 
 	@Override
 	public void jvnLockWrite() throws JvnException {
-		// TODO Auto-generated method stub
-
+		JvnServerImpl js = JvnServerImpl.jvnGetServer();
+		Serializable retObj = js.jvnLockRead(id);
+		if(retObj != null) {
+			lockState = LockStates.W;
+			obj = retObj;
+		}
 	}
 
 	@Override
 	public void jvnUnLock() throws JvnException {
-		// TODO Auto-generated method stub
-
+		lockState = LockStates.NL;
 	}
 
 	@Override
 	public int jvnGetObjectId() throws JvnException {
-		// TODO Auto-generated method stub
-		return 0;
+		return id;
 	}
 
 	@Override
 	public Serializable jvnGetSharedObject() throws JvnException {
-		// TODO Auto-generated method stub
-		return null;
+		return obj;
 	}
 
 	@Override
 	public void jvnInvalidateReader() throws JvnException {
-		// TODO Auto-generated method stub
-
+		lockState = LockStates.NL;
 	}
 
 	@Override
 	public Serializable jvnInvalidateWriter() throws JvnException {
-		// TODO Auto-generated method stub
-		return null;
+		lockState = LockStates.NL;
+		return obj;
 	}
 
 	@Override
 	public Serializable jvnInvalidateWriterForReader() throws JvnException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	public String getLockState() {
-		return lockState;
-	}
-
-	public void setLockState(String lockState) {
-		this.lockState = lockState;
+		lockState = LockStates.R;
+		return obj;
 	}
 
 }
