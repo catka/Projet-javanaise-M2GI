@@ -10,6 +10,13 @@ public class JvnObjectImpl implements JvnObject {
 	private static final long serialVersionUID = 1L;
 	
 	private String lockState = LockStates.NL;
+	private Serializable obj = null;
+	
+	
+	
+	public JvnObjectImpl(Serializable o) {
+		obj = o;
+	}
 
 	@Override
 	public void jvnLockRead() throws JvnException {

@@ -10,6 +10,8 @@
 package jvn;
 
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
+import java.util.Map;
 import java.io.*;
 
 
@@ -24,6 +26,11 @@ public class JvnServerImpl
 	private static final long serialVersionUID = 1L;
 	// A JVN server is managed as a singleton 
 	private static JvnServerImpl js = null;
+	
+	/* Objects in cache */
+	private Map<String, JvnObject> cache;
+	
+	
 
   /**
   * Default constructor
@@ -31,6 +38,7 @@ public class JvnServerImpl
   **/
 	private JvnServerImpl() throws Exception {
 		super();
+		cache = new HashMap<String, JvnObject>();
 		// to be completed
 	}
 	
@@ -66,7 +74,8 @@ public class JvnServerImpl
 	**/
 	public  JvnObject jvnCreateObject(Serializable o)
 	throws jvn.JvnException { 
-		return null; 
+		
+		return new JvnObjectImpl(o);
 	}
 	
 	/**
