@@ -9,6 +9,9 @@
 
 package jvn;
 
+import java.rmi.registry.LocateRegistry;
+import java.rmi.Naming;
+import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +33,8 @@ public class JvnServerImpl
 	/* Objects in cache */
 	private Map<String, JvnObject> cache;
 	
+	private JvnRemoteCoord coordinator = null;
+	
 	
 
   /**
@@ -39,7 +44,7 @@ public class JvnServerImpl
 	private JvnServerImpl() throws Exception {
 		super();
 		cache = new HashMap<String, JvnObject>();
-		// to be completed
+		coordinator = (JvnRemoteCoord) Naming.lookup(JvnCoordImpl.getJvnCoordRegistryId());
 	}
 	
   /**

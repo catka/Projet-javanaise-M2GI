@@ -9,7 +9,12 @@
 
 package jvn;
 
+import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.io.Serializable;
 
 
@@ -22,15 +27,53 @@ public class JvnCoordImpl
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
+	// A JVN coordinator is managed as a singleton 
+	private static JvnRemoteCoord coord = null;
+	
+	private int maxId = 0;
+	private static int port = 1099;
+	private static String registryId = "JvnCoord";
+	
+	private Map<String, Integer> aliases;
+	private Map<Integer, JvnObject> objects;
+	private Map<Integer, List<JvnRemoteServer>> readLocks;
+	private Map<Integer, JvnRemoteServer> writeLocks;
 
 /**
   * Default constructor
   * @throws JvnException
   **/
 	private JvnCoordImpl() throws Exception {
-		// to be completed
+		aliases = new HashMap<String, Integer>();
+		objects = new HashMap<Integer, JvnObject>();
+		readLocks = new HashMap<Integer, List<JvnRemoteServer>>();
+		writeLocks = new HashMap<Integer, JvnRemoteServer>();
+	}
+	
+  /**
+    * Static method allowing an application to get a reference to 
+    * a JVN coordinator instance
+    * @throws JvnException
+    **/
+	public static JvnRemoteCoord jvnGetCoordinator() {
+		if (coord == null){
+			try {
+				coord = new JvnCoordImpl();
+			} catch (Exception e) {
+				return null;
+			}
+		}
+		return coord;
+	}
+	
+	public static int getJvnCoordPort() {
+		return port;
 	}
 
+	public static String getJvnCoordRegistryId() {
+		return registryId;
+	}
+	
   /**
   *  Allocate a NEW JVN object id (usually allocated to a 
   *  newly created JVN object)
@@ -38,8 +81,8 @@ public class JvnCoordImpl
   **/
   public int jvnGetObjectId()
   throws java.rmi.RemoteException,jvn.JvnException {
-    // to be completed 
-    return 0;
+    maxId++;
+    return maxId;
   }
   
   /**
@@ -52,7 +95,13 @@ public class JvnCoordImpl
   **/
   public void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
-    // to be completed 
+    int id = jvnGetObjectId();
+    
+    objects.put(id, jo);
+    aliases.put(jon, id);
+    
+	readLocks.put(id, new ArrayList<JvnRemoteServer>());
+    writeLocks.put(id, js);  
   }
   
   /**
@@ -63,8 +112,12 @@ public class JvnCoordImpl
   **/
   public JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
-    // to be completed 
-    return null;
+	  int id = aliases.get(jon);
+	  if(id > 0) {
+		  JvnObject object = objects.get(id);
+		  return object;
+	  }
+	  return null;
   }
   
   /**
@@ -76,8 +129,21 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockRead(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
-    // to be completed
-    return null;
+	List<JvnRemoteServer> readers = readLocks.get(joi);
+	if(writeLocks.get(joi) != null) {
+		// invalidateWriterForReader must be called before registering new reader
+		writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
+		
+		//TODO: then, register new reader and return the object
+		
+	} else {
+	    if(!readers.contains(js)){
+	    	readers.add(js);
+	    }
+	    return objects.get(joi);
+	}
+
+	return null;
    }
 
   /**
@@ -89,7 +155,30 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
-    // to be completed
+	List<JvnRemoteServer> readers = readLocks.get(joi);
+	if(readers.size() > 0) {
+		 // invalidateReader
+		readers.forEach(r -> {
+			try {
+				r.jvnInvalidateReader(joi); 
+				// TODO: wait for all readers to confirm the unlock
+			} catch (RemoteException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (JvnException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		});
+		readers.clear();
+	}
+    if(writeLocks.get(joi) == null) {
+    	writeLocks.put(joi, js);
+    	return objects.get(joi);
+    } else {
+    	writeLocks.get(joi).jvnInvalidateWriter(joi);
+    	// TODO: wait for write lock to be released, then register the new remote server and return the object
+    }
     return null;
    }
 
