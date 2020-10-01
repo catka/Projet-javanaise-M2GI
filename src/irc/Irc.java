@@ -73,6 +73,16 @@ public class Irc {
 		frame.setSize(545,201);
 		text.setBackground(Color.black); 
 		frame.setVisible(true);
+		frame.addWindowListener(new WindowAdapter() {
+
+			@Override
+			public void windowClosing(WindowEvent arg0) {
+				// TODO Auto-generated method stub
+				super.windowClosing(arg0);
+				frame.dispose();
+			}
+			
+		});
 	}
 }
 
