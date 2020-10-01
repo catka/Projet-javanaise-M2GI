@@ -30,14 +30,18 @@ public class JvnObjectImpl implements JvnObject {
 			break;
 			default:
 				JvnServerImpl js = JvnServerImpl.jvnGetServer();
-				Serializable retObj = js.jvnLockRead(id);
+				LockStates state = (LockStates)js.jvnLockRead(id);
+				if(state != null) {
+					lockState = state;
+				}else {
+					System.out.println("Error: Lock Read returned null state");
+				}
+				//TODO Retrieve up-to-date JvnObject
 				
-				
-				
-				if(retObj != null) {
+				/*if(retObj != null) {
 					lockState = LockStates.R;
 					obj = retObj;
-				}
+				}*/
 			break;
 		}
 	}
@@ -64,7 +68,7 @@ public class JvnObjectImpl implements JvnObject {
 
 	@Override
 	public Serializable jvnGetSharedObject() throws JvnException {
-		return obj;
+		return this.obj;
 	}
 
 	@Override
