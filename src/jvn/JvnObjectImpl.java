@@ -9,7 +9,7 @@ public class JvnObjectImpl implements JvnObject {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	private String lockState = LockStates.NL;
+	private LockStates lockState = LockStates.NL;
 	private Serializable obj = null;
 	private int id = 0;
 	
@@ -22,15 +22,18 @@ public class JvnObjectImpl implements JvnObject {
 	@Override
 	public void jvnLockRead() throws JvnException {
 		switch(lockState) {
-			case LockStates.RC:
+			case RC:
 				lockState = LockStates.R;
 			break;
-			case LockStates.W:
+			case W:
 				lockState = LockStates.RWC;
 			break;
 			default:
 				JvnServerImpl js = JvnServerImpl.jvnGetServer();
 				Serializable retObj = js.jvnLockRead(id);
+				
+				
+				
 				if(retObj != null) {
 					lockState = LockStates.R;
 					obj = retObj;
