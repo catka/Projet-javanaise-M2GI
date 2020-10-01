@@ -209,7 +209,6 @@ public class JvnServerImpl
 	**/
   public Serializable jvnInvalidateWriter(int joi)
 	throws java.rmi.RemoteException,jvn.JvnException { 
-		// to be completed 
 	   //We ask the jvnObject who has the lock to invalidate it.
 	   //The invalidate call is from the coordinator
 	   System.out.println("Invalidating Writer : id = " + joi + ". Waiting for JvnObject confirmation");

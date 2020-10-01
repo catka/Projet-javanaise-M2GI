@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Stack;
 import java.io.Serializable;
 
 
@@ -30,14 +31,33 @@ public class JvnCoordImpl
 	// A JVN coordinator is managed as a singleton 
 	private static JvnRemoteCoord coord = null;
 	
-	private int maxId = 0;
+	final private int MAX_ID =  999999999;
+	private int lastJoiAssigned = 0;
+	
 	private static int port = 1099;
 	private static String registryId = "JvnCoord";
+	
+	
 	
 	private Map<String, Integer> aliases;
 	private Map<Integer, JvnObject> objects;
 	private Map<Integer, List<JvnRemoteServer>> readLocks;
 	private Map<Integer, JvnRemoteServer> writeLocks;
+	
+	//Lock stack for each joi.
+	//The top of the stack represents the most restrictive lock on the jvn object
+	private Map<Integer, Stack<StackEntry>> locks;
+	
+	private class StackEntry{
+		public JvnRemoteServer js = null;
+		public LockStates state = LockStates.NL;
+		
+		public StackEntry(JvnRemoteServer mJs, LockStates mState) {
+			js = mJs;
+			state = mState ;
+		}
+	}
+	
 
 /**
   * Default constructor
@@ -81,8 +101,8 @@ public class JvnCoordImpl
   **/
   public int jvnGetObjectId()
   throws java.rmi.RemoteException,jvn.JvnException {
-    maxId++;
-    return maxId;
+	  lastJoiAssigned = (lastJoiAssigned  + 1) % MAX_ID;
+    return lastJoiAssigned;
   }
   
   /**
@@ -112,12 +132,17 @@ public class JvnCoordImpl
   **/
   public JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
-	  int id = aliases.get(jon);
-	  if(id > 0) {
-		  JvnObject object = objects.get(id);
-		  return object;
+	  if(aliases.get(jon) != null) {
+		  int id = aliases.get(jon);
+		  if(id > 0) {
+			  JvnObject object = objects.get(id);
+			  return object;
+		  }
+	  }else {
+		  //Not Found
 	  }
 	  return null;
+	  
   }
   
   /**
@@ -129,21 +154,30 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockRead(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
+	
+	LockStates state = LockStates.NL;
 	List<JvnRemoteServer> readers = readLocks.get(joi);
+	
 	if(writeLocks.get(joi) != null) {
 		// invalidateWriterForReader must be called before registering new reader
-		writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
+		state = (LockStates)writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
 		
 		//TODO: then, register new reader and return the object
 		
+		
 	} else {
+		if(readers == null) {
+			readers = new ArrayList<JvnRemoteServer>();
+			
+		}
 	    if(!readers.contains(js)){
 	    	readers.add(js);
 	    }
-	    return objects.get(joi);
+	    readLocks.put(joi, readers);
+	    state = LockStates.R;
 	}
-
-	return null;
+	//System.out.println("Return state = " + state);
+	return state;
    }
 
   /**
@@ -155,6 +189,8 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
+	   
+	   
 	List<JvnRemoteServer> readers = readLocks.get(joi);
 	if(readers.size() > 0) {
 		 // invalidateReader
@@ -163,10 +199,8 @@ public class JvnCoordImpl
 				r.jvnInvalidateReader(joi); 
 				// TODO: wait for all readers to confirm the unlock
 			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (JvnException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		});
