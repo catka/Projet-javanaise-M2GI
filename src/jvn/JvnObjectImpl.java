@@ -13,10 +13,15 @@ public class JvnObjectImpl implements JvnObject {
 	private Serializable obj = null;
 	private int id = 0;
 	
+	public JvnObjectImpl(Serializable i, int joi, LockStates state) {
+		obj = i;
+		id = joi;
+		lockState = state;
+	}
 	
-	
-	public JvnObjectImpl(Serializable o) {
+	public JvnObjectImpl(Serializable o, int joi) {
 		obj = o;
+		id = joi;
 	}
 
 	@Override
@@ -30,11 +35,11 @@ public class JvnObjectImpl implements JvnObject {
 			break;
 			default:
 				JvnServerImpl js = JvnServerImpl.jvnGetServer();
-				LockStates state = (LockStates)js.jvnLockRead(id);
-				if(state != null) {
-					lockState = state;
+				Serializable retObj = js.jvnLockRead(id); //Returns the up-to-date jvnObject
+				if(retObj != null) {
+					obj = retObj;
 				}else {
-					System.out.println("Error: Lock Read returned null state");
+					throw new JvnException("Failed to retrieve up-to-date JVN Object state while requesting a Read Lock");
 				}
 				//TODO Retrieve up-to-date JvnObject
 				

@@ -82,13 +82,28 @@ public class JvnServerImpl
 	
 	/**
 	* creation of a JVN object
+	* 
 	* @param o : the JVN object state
 	* @throws JvnException
 	**/
 	public  JvnObject jvnCreateObject(Serializable o)
 	throws jvn.JvnException { 
-		return new JvnObjectImpl(o);
+		//Alllocate an id to the jvnObject
+		int joi = -1;
+		JvnObject jo = null;
+		if(coordinator != null) {
+			try {
+				joi = coordinator.jvnGetObjectId();
+				jo = new JvnObjectImpl(o, joi);
+			}catch(RemoteException re) {
+				throw new JvnException(re.getMessage());
+			}
+		}else {
+			throw new JvnException("Can't fetch coordinator");
+		}
+		return jo;
 	}
+	
 	
 	/**
 	*  Associate a symbolic name with a JVN object
@@ -149,6 +164,8 @@ public class JvnServerImpl
 		if(coordinator != null) {
 			System.out.println("Asking for a Read Lock of id = " + joi);
 			try {
+				
+
 				return coordinator.jvnLockRead(joi, this);
 			}catch(RemoteException re) {
 				System.out.println(re);
@@ -212,9 +229,7 @@ public class JvnServerImpl
 	   //We ask the jvnObject who has the lock to invalidate it.
 	   //The invalidate call is from the coordinator
 	   System.out.println("Invalidating Writer : id = " + joi + ". Waiting for JvnObject confirmation");
-	   LockStates newState = (LockStates)cache.get(joi).jvnInvalidateWriter();
-	   System.out.println("New state for id = " + joi + " = " + newState);
-		return newState;
+	   return cache.get(joi).jvnInvalidateWriter();
 	};
 	
 	/**
@@ -228,9 +243,7 @@ public class JvnServerImpl
 		//We ask the jvnObject who has the lock to invalidate it.
 	   //The invalidate call is from the coordinator
 	   System.out.println("Invalidating WriterForReader : id = " + joi + ". Waiting for JvnObject confirmation");
-	   LockStates newState = (LockStates)cache.get(joi).jvnInvalidateWriterForReader();
-	   System.out.println("New state for id = " + joi + " = " + newState);
-		return newState;
+	   return cache.get(joi).jvnInvalidateWriterForReader();
 	 };
 
 }

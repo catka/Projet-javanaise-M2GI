@@ -40,7 +40,7 @@ public class JvnCoordImpl
 	
 	
 	private Map<String, Integer> aliases;
-	private Map<Integer, JvnObject> objects;
+	private Map<Integer, Serializable> objects; //Contains last validated state of the object
 	private Map<Integer, List<JvnRemoteServer>> readLocks;
 	private Map<Integer, JvnRemoteServer> writeLocks;
 	
@@ -65,7 +65,7 @@ public class JvnCoordImpl
   **/
 	private JvnCoordImpl() throws Exception {
 		aliases = new HashMap<String, Integer>();
-		objects = new HashMap<Integer, JvnObject>();
+		objects = new HashMap<Integer, Serializable>();
 		readLocks = new HashMap<Integer, List<JvnRemoteServer>>();
 		writeLocks = new HashMap<Integer, JvnRemoteServer>();
 	}
@@ -115,13 +115,13 @@ public class JvnCoordImpl
   **/
   public void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
-    int id = jvnGetObjectId();
+    //int id = jvnGetObjectId();
     
-    objects.put(id, jo);
-    aliases.put(jon, id);
+    objects.put(jo.jvnGetObjectId(), jo);
+    aliases.put(jon, jo.jvnGetObjectId());
     
-	readLocks.put(id, new ArrayList<JvnRemoteServer>());
-    writeLocks.put(id, js);  
+	readLocks.put(jo.jvnGetObjectId(), new ArrayList<JvnRemoteServer>());
+    writeLocks.put(jo.jvnGetObjectId(), js);  
   }
   
   /**
@@ -135,8 +135,18 @@ public class JvnCoordImpl
 	  if(aliases.get(jon) != null) {
 		  int id = aliases.get(jon);
 		  if(id > 0) {
-			  JvnObject object = objects.get(id);
-			  return object;
+			  //JvnObject object = objects.get(id);
+			  
+			  LockStates objState = LockStates.NL;
+			  if(writeLocks != null && writeLocks.containsKey(id) && writeLocks.get(id) != null) {
+				  objState = LockStates.W;
+			  }
+			  else if(readLocks != null && readLocks.containsKey(id) && readLocks.get(id).size() > 0) {
+				  objState = LockStates.R;
+			  }
+			  //Recompile the JvnObject with the validated lock state in coord
+			  JvnObject jo = new JvnObjectImpl(objects.get(id), id, objState);
+			  return jo;
 		  }
 	  }else {
 		  //Not Found
@@ -158,26 +168,33 @@ public class JvnCoordImpl
 	LockStates state = LockStates.NL;
 	List<JvnRemoteServer> readers = readLocks.get(joi);
 	
-	if(writeLocks.get(joi) != null) {
+	if(readers == null)readers = new ArrayList<JvnRemoteServer>();
+	
+	if(objects.containsKey(joi)) {
+		System.out.println("Contains the object = " + joi);
+	}else {
+		System.out.println(" Not contained = " + joi);
+	}
+	
+	if(writeLocks.get(joi) != null && writeLocks.size() > 0) {
 		// invalidateWriterForReader must be called before registering new reader
-		state = (LockStates)writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
+		Serializable  jo = writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
+		objects.put(joi, jo); //up-to-date Jvn Object state
 		
-		//TODO: then, register new reader and return the object
-		
+		//Register new reader and return the object
+		if(!readers.contains(js)) {
+			readers.add(js);
+		}
+		readLocks.put(joi, readers);
 		
 	} else {
-		if(readers == null) {
-			readers = new ArrayList<JvnRemoteServer>();
-			
-		}
 	    if(!readers.contains(js)){
 	    	readers.add(js);
 	    }
 	    readLocks.put(joi, readers);
-	    state = LockStates.R;
+	    //state = LockStates.R;
 	}
-	//System.out.println("Return state = " + state);
-	return state;
+	return objects.get(joi);
    }
 
   /**
@@ -210,10 +227,11 @@ public class JvnCoordImpl
     	writeLocks.put(joi, js);
     	return objects.get(joi);
     } else {
-    	writeLocks.get(joi).jvnInvalidateWriter(joi);
+    	Serializable  retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+    	objects.put(joi, retObj ); //Get the last version of JvnObject
     	// TODO: wait for write lock to be released, then register the new remote server and return the object
     }
-    return null;
+    return objects.get(joi);
    }
 
 	/**
@@ -223,7 +241,28 @@ public class JvnCoordImpl
 	**/
     public void jvnTerminate(JvnRemoteServer js)
 	 throws java.rmi.RemoteException, JvnException {
-	 // to be completed
+    	
+    	//Get the last JVN Object state that are write-locked by the terminating server
+    	for(Map.Entry<Integer, JvnRemoteServer> e: writeLocks.entrySet()) {
+    		if(e.getValue() == js) {
+    			//Equals
+    			System.out.println("Server terminateing has write lock");
+    			Serializable lastObj = js.jvnInvalidateWriter(e.getKey());
+    			System.out.println("Last version : " + lastObj);
+    			
+    		}
+    	}
+    	
+    	//Remove the read locks of the terminating server
+    	for(Map.Entry<Integer, List<JvnRemoteServer> > e : readLocks.entrySet()) {
+    		if(e.getValue() != null) {
+    			if(e.getValue().contains(js)) {
+    				e.getValue().remove(js);
+    			}
+    		}
+    		
+    	}
+    	
     }
 }
 
