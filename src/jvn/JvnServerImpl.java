@@ -144,8 +144,11 @@ public class JvnServerImpl
 			System.out.println("Looking up object (name = " + jon + ") ");
 			try {
 				jo = coordinator.jvnLookupObject(jon, this);
-				cache.put(jo.jvnGetObjectId(), jo); // caching the object
+				if(jo != null) {
+					cache.put(jo.jvnGetObjectId(), jo); // caching the object
+				}
 			}catch(RemoteException re) {
+				
 				System.out.println(re);
 			}
 			
