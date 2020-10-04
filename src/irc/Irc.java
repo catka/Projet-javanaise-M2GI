@@ -77,7 +77,12 @@ public class Irc {
 
 			@Override
 			public void windowClosing(WindowEvent arg0) {
-				// TODO Auto-generated method stub
+				
+				try {
+					JvnServerImpl.jvnGetServer().jvnTerminate();
+				}catch(JvnException je) {
+					je.printStackTrace();
+				}
 				super.windowClosing(arg0);
 				frame.dispose();
 			}
