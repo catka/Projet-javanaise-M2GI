@@ -117,7 +117,7 @@ public class JvnCoordImpl
   throws java.rmi.RemoteException,jvn.JvnException{
     //int id = jvnGetObjectId();
     
-    objects.put(jo.jvnGetObjectId(), jo);
+    objects.put(jo.jvnGetObjectId(), jo.jvnGetSharedObject());
     aliases.put(jon, jo.jvnGetObjectId());
     
 	readLocks.put(jo.jvnGetObjectId(), new ArrayList<JvnRemoteServer>());
@@ -145,6 +145,7 @@ public class JvnCoordImpl
 				  objState = LockStates.R;
 			  }
 			  //Recompile the JvnObject with the validated lock state in coord
+			  
 			  JvnObject jo = new JvnObjectImpl(objects.get(id), id, objState);
 			  return jo;
 		  }

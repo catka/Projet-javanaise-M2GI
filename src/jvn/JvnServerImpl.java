@@ -118,6 +118,7 @@ public class JvnServerImpl
 			System.out.println("Registering obj '" + jon + "'");
 			try {
 				coordinator.jvnRegisterObject(jon, jo, this);
+				cache.put(jo.jvnGetObjectId(), jo); //Caching the object
 			}catch(RemoteException re) {
 				System.out.println(re);
 			}
@@ -143,6 +144,7 @@ public class JvnServerImpl
 			System.out.println("Looking up object (name = " + jon + ") ");
 			try {
 				jo = coordinator.jvnLookupObject(jon, this);
+				cache.put(jo.jvnGetObjectId(), jo); // caching the object
 			}catch(RemoteException re) {
 				System.out.println(re);
 			}
@@ -228,8 +230,11 @@ public class JvnServerImpl
 	throws java.rmi.RemoteException,jvn.JvnException { 
 	   //We ask the jvnObject who has the lock to invalidate it.
 	   //The invalidate call is from the coordinator
-	   System.out.println("Invalidating Writer : id = " + joi + ". Waiting for JvnObject confirmation");
-	   return cache.get(joi).jvnInvalidateWriter();
+	  if(cache != null && cache.containsKey(joi)) {
+		   return cache.get(joi).jvnInvalidateWriterForReader();
+	   }else {
+		   throw new  JvnException("Attempt to invalidate Writer on a non-cached jvnObject");
+	   }
 	};
 	
 	/**
@@ -242,8 +247,12 @@ public class JvnServerImpl
 	 throws java.rmi.RemoteException,jvn.JvnException { 
 		//We ask the jvnObject who has the lock to invalidate it.
 	   //The invalidate call is from the coordinator
-	   System.out.println("Invalidating WriterForReader : id = " + joi + ". Waiting for JvnObject confirmation");
-	   return cache.get(joi).jvnInvalidateWriterForReader();
+	   if(cache != null && cache.containsKey(joi)) {
+		   return cache.get(joi).jvnInvalidateWriterForReader();
+	   }else {
+		   throw new  JvnException("Attempt to invalidate Writer For Reader on a non-cached jvnObject");
+	   }
+	   
 	 };
 
 }
