@@ -134,6 +134,7 @@ public class JvnCoordImpl
   throws java.rmi.RemoteException,jvn.JvnException{
 	  if(aliases.get(jon) != null) {
 		  int id = aliases.get(jon);
+			System.out.println("id = " + id);
 		  if(id > 0) {
 			  //JvnObject object = objects.get(id);
 			  
@@ -150,6 +151,7 @@ public class JvnCoordImpl
 			  return jo;
 		  }
 	  }else {
+			System.out.println("Not found!");
 		  //Not Found
 	  }
 	  return null;
@@ -207,15 +209,13 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
-	   
-	   
 	List<JvnRemoteServer> readers = readLocks.get(joi);
+	System.out.println("Already have " + readers.size() + " readers on " + joi);
+	// Invalidate current readers
 	if(readers.size() > 0) {
-		 // invalidateReader
 		readers.forEach(r -> {
 			try {
-				r.jvnInvalidateReader(joi); 
-				// TODO: wait for all readers to confirm the unlock
+				r.jvnInvalidateReader(joi);
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			} catch (JvnException e) {
@@ -226,11 +226,10 @@ public class JvnCoordImpl
 	}
     if(writeLocks.get(joi) == null) {
     	writeLocks.put(joi, js);
-    	return objects.get(joi);
     } else {
-    	Serializable  retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
-    	objects.put(joi, retObj ); //Get the last version of JvnObject
-    	// TODO: wait for write lock to be released, then register the new remote server and return the object
+    	Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+    	objects.put(joi, retObj); //Get the last version of JvnObject
+    	writeLocks.put(joi, js);
     }
     return objects.get(joi);
    }
