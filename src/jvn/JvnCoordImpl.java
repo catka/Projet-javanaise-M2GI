@@ -182,12 +182,20 @@ public class JvnCoordImpl
 	if(writeLocks.get(joi) != null && writeLocks.size() > 0) {
 		// invalidateWriterForReader must be called before registering new reader
 		System.out.println("WriteLocks = " + writeLocks.get(joi) + " vs Server = " + js);
-		Serializable  jo = writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
+		JvnRemoteServer jsWithWriteLock = writeLocks.get(joi);
+		System.out.println("Calling invalidateWfR");
+		Serializable  jo = jsWithWriteLock.jvnInvalidateWriterForReader(joi);
 		objects.put(joi, jo); //up-to-date Jvn Object state
+		
+		//TODO: remove write locks in coord
+		writeLocks.remove(joi);
 		
 		//Register new reader and return the object
 		if(!readers.contains(js)) {
 			readers.add(js);
+		}
+		if(!readers.contains(jsWithWriteLock)) {
+			readers.add(jsWithWriteLock);
 		}
 		readLocks.put(joi, readers);
 		
@@ -211,14 +219,26 @@ public class JvnCoordImpl
    public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
 	List<JvnRemoteServer> readers = readLocks.get(joi);
+	System.out.println("LockWrite called");
 	System.out.println("Already have " + readers.size() + " readers on " + joi);
 	// Invalidate current readers
+	List<JvnRemoteServer> processedServ = new ArrayList<JvnRemoteServer>();
 	if(readers.size() > 0) {
 		readers.forEach(r -> {
 			if(!r.equals(js) ) {
 				//Invalidate reads from other servers,
 				try {
+					System.out.println("(1)Calling invalidateReader");
+					if(writeLocks != null && writeLocks.containsKey(joi) && writeLocks.get(joi).equals(r)){
+						//A server has a write lock
+						System.out.println("Calling invalidateWriter");
+						Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+				    	objects.put(joi, retObj); //Get the last version of JvnObject
+					}
+					System.out.println("Calling invalidateReader");
 					r.jvnInvalidateReader(joi);
+					
+					processedServ.add(r);
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				} catch (JvnException e) {
@@ -230,13 +250,8 @@ public class JvnCoordImpl
 		});
 		readers.clear();
 	}
-    if(writeLocks.get(joi) == null) {
-    	writeLocks.put(joi, js);
-    } else {
-    	Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
-    	objects.put(joi, retObj); //Get the last version of JvnObject
-    	writeLocks.put(joi, js);
-    }
+    
+    writeLocks.put(joi, js);
     return objects.get(joi);
    }
 
