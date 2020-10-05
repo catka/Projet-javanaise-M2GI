@@ -214,7 +214,6 @@ public class JvnCoordImpl
 	System.out.println("Already have " + readers.size() + " readers on " + joi);
 	// Invalidate current readers
 	if(readers.size() > 0) {
-		
 		readers.forEach(r -> {
 			if(!r.equals(js) ) {
 				//Invalidate reads from other servers,
@@ -228,8 +227,6 @@ public class JvnCoordImpl
 			}else {
 				System.out.println("The calling serve of jvnLockWrite has a Read lock on " + joi);
 			}
-			
-			
 		});
 		readers.clear();
 	}
