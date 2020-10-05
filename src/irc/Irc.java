@@ -81,9 +81,16 @@ public class Irc {
 		text.setBackground(Color.black); 
 		frame.add(texLockState);
 		
+		Button unlock_state = new Button("Unlock");
+		unlock_state.addActionListener(new unlockListener(this));
+		frame.add(unlock_state);
+		
 		Button refresh_state = new Button("refresh");
 		refresh_state.addActionListener(new refreshListener(this));
 		frame.add(refresh_state);
+		
+		
+		
 		frame.setVisible(true);
 		frame.addWindowListener(new WindowAdapter() {
 
@@ -125,7 +132,7 @@ public class Irc {
 		// invoke the method
 		String s = ((Sentence)(irc.sentence.jvnGetSharedObject())).read();
 		// unlock the object
-		irc.sentence.jvnUnLock();
+		//irc.sentence.jvnUnLock();
 		irc.texLockState.setText(""+ ((JvnObjectImpl)irc.sentence).jvnGetLockState());
 		// display the read value
 		irc.data.setText(s);
@@ -135,6 +142,30 @@ public class Irc {
 	   }
 	}
 }
+ 
+ /**
+  * Internal class to manage user events (write) on the CHAT application
+  **/
+ class unlockListener implements ActionListener {
+	 Irc irc;
+	 
+	 public unlockListener (Irc i) {
+		 irc = i;
+	 }
+	 
+	 /**
+	  * Management of user events
+	  **/
+	 public void actionPerformed (ActionEvent e) {
+		 try {	
+			// unlock the object
+			irc.sentence.jvnUnLock();
+			 
+		 } catch (JvnException je) {
+			 System.out.println("IRC problem (unlockListener) : " + je.getMessage());
+		 }
+	 }
+ }
 
  /**
   * Internal class to manage user events (write) on the CHAT application
@@ -162,7 +193,7 @@ public class Irc {
 		((Sentence)(irc.sentence.jvnGetSharedObject())).write(s);
 
 		// unlock the object
-		irc.sentence.jvnUnLock();
+		//irc.sentence.jvnUnLock();
 		
 		
 	 } catch (JvnException je) {
