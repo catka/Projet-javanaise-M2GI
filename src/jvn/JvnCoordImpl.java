@@ -12,6 +12,7 @@ package jvn;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +135,7 @@ public class JvnCoordImpl
   throws java.rmi.RemoteException,jvn.JvnException{
 	  if(aliases.get(jon) != null) {
 		  int id = aliases.get(jon);
+			System.out.println("id = " + id);
 		  if(id > 0) {
 			  //JvnObject object = objects.get(id);
 			  
@@ -179,6 +181,7 @@ public class JvnCoordImpl
 	
 	if(writeLocks.get(joi) != null && writeLocks.size() > 0) {
 		// invalidateWriterForReader must be called before registering new reader
+		System.out.println("WriteLocks = " + writeLocks.get(joi) + " vs Server = " + js);
 		Serializable  jo = writeLocks.get(joi).jvnInvalidateWriterForReader(joi);
 		objects.put(joi, jo); //up-to-date Jvn Object state
 		
@@ -207,30 +210,35 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
-	   
-	   
 	List<JvnRemoteServer> readers = readLocks.get(joi);
+	System.out.println("Already have " + readers.size() + " readers on " + joi);
+	// Invalidate current readers
 	if(readers.size() > 0) {
-		 // invalidateReader
+		
 		readers.forEach(r -> {
-			try {
-				r.jvnInvalidateReader(joi); 
-				// TODO: wait for all readers to confirm the unlock
-			} catch (RemoteException e) {
-				e.printStackTrace();
-			} catch (JvnException e) {
-				e.printStackTrace();
+			if(!r.equals(js) ) {
+				//Invalidate reads from other servers,
+				try {
+					r.jvnInvalidateReader(joi);
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				} catch (JvnException e) {
+					e.printStackTrace();
+				}
+			}else {
+				System.out.println("The calling serve of jvnLockWrite has a Read lock on " + joi);
 			}
+			
+			
 		});
 		readers.clear();
 	}
     if(writeLocks.get(joi) == null) {
     	writeLocks.put(joi, js);
-    	return objects.get(joi);
     } else {
-    	Serializable  retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
-    	objects.put(joi, retObj ); //Get the last version of JvnObject
-    	// TODO: wait for write lock to be released, then register the new remote server and return the object
+    	Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+    	objects.put(joi, retObj); //Get the last version of JvnObject
+    	writeLocks.put(joi, js);
     }
     return objects.get(joi);
    }
@@ -242,14 +250,15 @@ public class JvnCoordImpl
 	**/
     public void jvnTerminate(JvnRemoteServer js)
 	 throws java.rmi.RemoteException, JvnException {
-    	
+    	System.out.println("A server has called jvnTerminate");
     	//Get the last JVN Object state that are write-locked by the terminating server
     	for(Map.Entry<Integer, JvnRemoteServer> e: writeLocks.entrySet()) {
-    		if(e.getValue() == js) {
+    		if(e.getValue().equals(js) ) {
     			//Equals
-    			System.out.println("Server terminateing has write lock");
+    			System.out.println("Server terminating has write lock");
     			Serializable lastObj = js.jvnInvalidateWriter(e.getKey());
-    			System.out.println("Last version : " + lastObj);
+    			System.out.println("Last version fetched");
+    			objects.put(e.getKey(), lastObj);
     			
     		}
     	}

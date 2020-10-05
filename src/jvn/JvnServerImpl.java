@@ -88,7 +88,7 @@ public class JvnServerImpl
 	**/
 	public  JvnObject jvnCreateObject(Serializable o)
 	throws jvn.JvnException { 
-		//Alllocate an id to the jvnObject
+		// Allocate an id to the jvnObject
 		int joi = -1;
 		JvnObject jo = null;
 		if(coordinator != null) {
@@ -129,7 +129,7 @@ public class JvnServerImpl
 	}
 	
 	/**
-	* Provide the reference of a JVN object beeing given its symbolic name
+	* Provide the reference of a JVN object being given its symbolic name
 	* @param jon : the JVN object name
 	* @return the JVN object 
 	* @throws JvnException
@@ -146,10 +146,11 @@ public class JvnServerImpl
 				jo = coordinator.jvnLookupObject(jon, this);
 				if(jo != null) {
 					cache.put(jo.jvnGetObjectId(), jo); // caching the object
+				} else {
+					System.out.println("Object is null!");
 				}
 			}catch(RemoteException re) {
-				
-				System.out.println(re);
+				System.out.println(re.getMessage());
 			}
 			
 		}else {
@@ -194,7 +195,7 @@ public class JvnServerImpl
 			try {
 				return coordinator.jvnLockWrite(joi, this);
 			}catch(RemoteException re) {
-				System.out.println(re);
+				System.out.println(re.getMessage());
 			}
 			
 		}else {
