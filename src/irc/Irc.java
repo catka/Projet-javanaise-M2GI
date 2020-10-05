@@ -38,7 +38,8 @@ public class Irc {
 		JvnObject jo = js.jvnLookupObject("IRC");
 		if(jo != null) {
 			//reset lockstate
-			jo = new JvnObjectImpl(jo.jvnGetSharedObject(), jo.jvnGetObjectId(), LockStates.NL);
+			//jo = new JvnObjectImpl(jo.jvnGetSharedObject(), jo.jvnGetObjectId(), LockStates.NL);
+			
 		}
 		
 		if (jo == null) {
@@ -159,9 +160,11 @@ public class Irc {
 		
 		// invoke the method
 		((Sentence)(irc.sentence.jvnGetSharedObject())).write(s);
-		
+
 		// unlock the object
 		irc.sentence.jvnUnLock();
+		
+		
 	 } catch (JvnException je) {
 		   System.out.println("IRC problem  : " + je.getMessage());
 	 }
