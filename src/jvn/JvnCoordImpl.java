@@ -133,6 +133,7 @@ public class JvnCoordImpl
   **/
   public JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
+	  System.out.println("jvnLooupObject");
 	  if(aliases.get(jon) != null) {
 		  int id = aliases.get(jon);
 			System.out.println("id = " + id);
@@ -148,7 +149,7 @@ public class JvnCoordImpl
 			  }
 			  //Recompile the JvnObject with the validated lock state in coord
 			  
-			  JvnObject jo = new JvnObjectImpl(objects.get(id), id, objState);
+			  JvnObject jo = new JvnObjectImpl(objects.get(id), id, LockStates.NL); //Init lock state to NL
 			  return jo;
 		  }
 	  }else {
@@ -167,6 +168,7 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockRead(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
+	 System.out.println("[lockRead] Readerslock size = " + readLocks.get(joi));
 	
 	LockStates state = LockStates.NL;
 	List<JvnRemoteServer> readers = readLocks.get(joi);
@@ -206,6 +208,8 @@ public class JvnCoordImpl
 	    readLocks.put(joi, readers);
 	    //state = LockStates.R;
 	}
+	
+	System.out.println("[lockRead:after] Readerslock size = " + readLocks.get(joi));
 	return objects.get(joi);
    }
 
@@ -218,23 +222,30 @@ public class JvnCoordImpl
   **/
    public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
+	   System.out.println("[lockWrite] Readerslock size = " + readLocks.get(joi).size() + ", writeLock = " + writeLocks.containsKey(joi));
 	List<JvnRemoteServer> readers = readLocks.get(joi);
 	System.out.println("LockWrite called");
 	System.out.println("Already have " + readers.size() + " readers on " + joi);
+	System.out.println("Already have writer on " + joi + " : " +  writeLocks.containsKey(joi)  );
+	
 	// Invalidate current readers
 	List<JvnRemoteServer> processedServ = new ArrayList<JvnRemoteServer>();
+	if(writeLocks != null && writeLocks.containsKey(joi) && !writeLocks.get(joi).equals(js)){
+		//A server has a write lock
+		System.out.println("Calling invalidateWriter");
+		Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+    	objects.put(joi, retObj); //Get the last version of JvnObject
+	}
+	
+	
 	if(readers.size() > 0) {
 		readers.forEach(r -> {
 			if(!r.equals(js) ) {
 				//Invalidate reads from other servers,
 				try {
-					System.out.println("(1)Calling invalidateReader");
-					if(writeLocks != null && writeLocks.containsKey(joi) && writeLocks.get(joi).equals(r)){
-						//A server has a write lock
-						System.out.println("Calling invalidateWriter");
-						Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
-				    	objects.put(joi, retObj); //Get the last version of JvnObject
-					}
+					System.out.println("(1)Calling invalidateReader, has writeLock in coord = " + writeLocks.containsKey(joi));
+					
+					
 					System.out.println("Calling invalidateReader");
 					r.jvnInvalidateReader(joi);
 					
@@ -250,8 +261,9 @@ public class JvnCoordImpl
 		});
 		readers.clear();
 	}
-    
+    System.out.println("Add write lock in coord for joi = " + joi);
     writeLocks.put(joi, js);
+    System.out.println("[lockWrite:after] Readerslock size = " + readLocks.get(joi).size() + " writeLock = " + writeLocks.containsKey(joi));
     return objects.get(joi);
    }
 

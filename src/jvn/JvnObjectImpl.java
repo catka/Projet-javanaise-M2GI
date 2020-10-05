@@ -65,6 +65,7 @@ public class JvnObjectImpl implements JvnObject {
 				JvnServerImpl js = JvnServerImpl.jvnGetServer();
 				Serializable retObj = js.jvnLockWrite(id);
 				if(retObj != null) {
+					System.out.println("calling LockedWrite = " + lockState);
 					lockState = LockStates.W;
 					obj = retObj;
 				}
@@ -74,6 +75,7 @@ public class JvnObjectImpl implements JvnObject {
 
 	@Override
 	public void jvnUnLock() throws JvnException {
+		System.out.println(" Unlocking : " + lockState);
 		try {
 			switch(lockState) {
 				case W:
@@ -104,8 +106,8 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	public void jvnInvalidateReader() throws JvnException {
-			System.out.println("invalidate Reader");
+	 public void jvnInvalidateReader() throws JvnException {
+			System.out.println("invalidate Reader (before state = " + lockState + ")");
 			switch(lockState) {
 				case R:
 				case RC:
@@ -114,7 +116,9 @@ public class JvnObjectImpl implements JvnObject {
 					PollStateThread th = new PollStateThread(this, false);
 					th.start();
 		            try{
-		                th.wait();
+		            	synchronized(this) {
+		            		this.wait();
+		            	}
 		                lockState = LockStates.NL;
 		                System.out.println("New state = " + lockState);
 		            }catch(InterruptedException e){
@@ -130,15 +134,17 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	public Serializable jvnInvalidateWriter() throws JvnException {
-		
+	 public Serializable jvnInvalidateWriter() throws JvnException {
+			
 			switch(lockState) {
 				case W:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Writer");
 					PollStateThread th = new PollStateThread(this, true);
 					th.start();
 		            try{
-		                th.wait();
+		            	synchronized(th) {
+		            		th.wait();
+		            	}
 		                lockState = LockStates.NL;
 		                
 		            }catch(InterruptedException e){
@@ -158,7 +164,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	synchronized public Serializable jvnInvalidateWriterForReader() throws JvnException {
+	 public Serializable jvnInvalidateWriterForReader() throws JvnException {
 			
 			switch(lockState) {
 				case W:
@@ -166,8 +172,10 @@ public class JvnObjectImpl implements JvnObject {
 					PollStateThread th = new PollStateThread(this, true);
 					th.start();
 		            try{
-		                th.wait();
-		                lockState = LockStates.NL;
+		            	synchronized(this) {
+		            		this.wait();
+		            	}
+		                //lockState = LockStates.NL;
 		                
 		            }catch(InterruptedException e){
 		                e.printStackTrace();
@@ -206,20 +214,20 @@ class PollStateThread extends Thread {
     public void run() {
             while (true) {
             	LockStates state = jo.jvnGetLockState();
-            	
+            	System.out.println("Thread = " + state + " , waitInvalidWrite" + waitInvalidWrite);
             	if(waitInvalidWrite && state != LockStates.W) {
             		//Can now invalidate Write lock
             		break;
-            	}else if(!waitInvalidWrite && (state != LockStates.R && 
-			            			state != LockStates.W && 
-			            			state != LockStates.RWC )) {
+            	}else if(!waitInvalidWrite && (state  != LockStates.R && 
+						            			state != LockStates.W && 
+						            			state != LockStates.RWC )) {
             		//Can now invalidate Read lock
             		break;
             	}
                 
             }
             synchronized(jo) {
-            	notify();
+            	jo.notify();
             }
     }
 }

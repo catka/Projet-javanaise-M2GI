@@ -234,8 +234,10 @@ public class JvnServerImpl
 	throws java.rmi.RemoteException,jvn.JvnException { 
 	   //We ask the jvnObject who has the lock to invalidate it.
 	   //The invalidate call is from the coordinator
+	  
 	  if(cache != null && cache.containsKey(joi)) {
-		   return cache.get(joi).jvnInvalidateWriterForReader();
+		  System.out.println("[Serv:jvnInvalidateWriter] JvnObject lock state " + ((JvnObjectImpl)cache.get(joi)).jvnGetLockState());
+		   return cache.get(joi).jvnInvalidateWriter();
 	   }else {
 		   throw new  JvnException("Attempt to invalidate Writer on a non-cached jvnObject");
 	   }
