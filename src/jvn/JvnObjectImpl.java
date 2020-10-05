@@ -203,34 +203,34 @@ public class JvnObjectImpl implements JvnObject {
 }
 
 
-class PollStateThread extends Thread {
-	
-	final JvnObjectImpl jo;
-	final boolean waitInvalidWrite;
-	
-	 public PollStateThread(JvnObjectImpl jo, boolean waitInvalidWrite) {
-		 this.jo = jo;
-		 this.waitInvalidWrite = waitInvalidWrite;
-	 }
- 
-    @Override
-    public void run() {
-            while (true) {
-            	LockStates state = jo.jvnGetLockState();
-            	System.out.println("Thread = " + state + " , waitInvalidWrite" + waitInvalidWrite);
-            	if(waitInvalidWrite && state != LockStates.W) {
-            		//Can now invalidate Write lock
-            		break;
-            	}else if(!waitInvalidWrite && (state  != LockStates.R && 
-						            			state != LockStates.W && 
-						            			state != LockStates.RWC )) {
-            		//Can now invalidate Read lock
-            		break;
-            	}
-                
-            }
-            synchronized(jo) {
-            	jo.notify();
-            }
-    }
-}
+//class PollStateThread extends Thread {
+//	
+//	final JvnObjectImpl jo;
+//	final boolean waitInvalidWrite;
+//	
+//	 public PollStateThread(JvnObjectImpl jo, boolean waitInvalidWrite) {
+//		 this.jo = jo;
+//		 this.waitInvalidWrite = waitInvalidWrite;
+//	 }
+// 
+//    @Override
+//    public void run() {
+//            while (true) {
+//            	LockStates state = jo.jvnGetLockState();
+//            	System.out.println("Thread = " + state + " , waitInvalidWrite" + waitInvalidWrite);
+//            	if(waitInvalidWrite && state != LockStates.W) {
+//            		//Can now invalidate Write lock
+//            		break;
+//            	}else if(!waitInvalidWrite && (state  != LockStates.R && 
+//						            			state != LockStates.W && 
+//						            			state != LockStates.RWC )) {
+//            		//Can now invalidate Read lock
+//            		break;
+//            	}
+//                
+//            }
+//            synchronized(jo) {
+//            	jo.notify();
+//            }
+//    }
+//}
