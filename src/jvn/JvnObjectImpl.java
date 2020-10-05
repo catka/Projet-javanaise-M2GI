@@ -111,16 +111,13 @@ public class JvnObjectImpl implements JvnObject {
 	 public void jvnInvalidateReader() throws JvnException {
 			System.out.println("invalidate Reader (before state = " + lockState + ")");
 			switch(lockState) {
-			case RC:
-				// TODO: NL sans wait
+				case RC:
+					System.out.println("JvnObject was cached, now NL");
+					lockState = LockStates.NL;
 				break;
 				case R:
-//				case RC:
 				case RWC:
-					// TODO: this.wait() au lieu du th
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Reader");
-					PollStateThread th = new PollStateThread(this, false);
-					th.start();
 		            try{
 		            	synchronized(this) {
 		            		this.wait();
@@ -143,15 +140,16 @@ public class JvnObjectImpl implements JvnObject {
 	 public Serializable jvnInvalidateWriter() throws JvnException {
 			
 			switch(lockState) {
-				case W:
 				case WC:
+					System.out.println("JvnObject was cached, now NL");
+					lockState = LockStates.NL;
+					break;
+				case W:
 				case RWC:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Writer");
-					PollStateThread th = new PollStateThread(this, true);
-					th.start();
 		            try{
-		            	synchronized(th) {
-		            		th.wait();
+		            	synchronized(this) {
+		            		this.wait();
 		            	}
 		                lockState = LockStates.NL;
 		                
@@ -177,14 +175,10 @@ public class JvnObjectImpl implements JvnObject {
 			switch(lockState) {
 				case W:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation WrtierForReader");
-					PollStateThread th = new PollStateThread(this, true);
-					th.start();
 		            try{
 		            	synchronized(this) {
 		            		this.wait();
 		            	}
-		                //lockState = LockStates.NL;
-		                
 		            }catch(InterruptedException e){
 		                e.printStackTrace();
 		            }
