@@ -20,6 +20,7 @@ public class Irc {
 	public TextField	data;
 	Frame 			frame;
 	JvnObject       sentence;
+	public TextField texLockState;
 
 
   /**
@@ -35,7 +36,11 @@ public class Irc {
 		// look up the IRC object in the JVN server
 		// if not found, create it, and register it in the JVN server
 		JvnObject jo = js.jvnLookupObject("IRC");
-		   
+		if(jo != null) {
+			//reset lockstate
+			jo = new JvnObjectImpl(jo.jvnGetSharedObject(), jo.jvnGetObjectId(), LockStates.NL);
+		}
+		
 		if (jo == null) {
 			jo = js.jvnCreateObject((Serializable) new Sentence());
 			// after creation, I have a write lock on the object
@@ -63,6 +68,7 @@ public class Irc {
 		text.setForeground(Color.red);
 		frame.add(text);
 		data=new TextField(40);
+		texLockState = new TextField("LockState", 20);
 		frame.add(data);
 		Button read_button = new Button("read");
 		read_button.addActionListener(new readListener(this));
@@ -72,6 +78,11 @@ public class Irc {
 		frame.add(write_button);
 		frame.setSize(545,201);
 		text.setBackground(Color.black); 
+		frame.add(texLockState);
+		
+		Button refresh_state = new Button("refresh");
+		refresh_state.addActionListener(new refreshListener(this));
+		frame.add(refresh_state);
 		frame.setVisible(true);
 		frame.addWindowListener(new WindowAdapter() {
 
@@ -85,6 +96,7 @@ public class Irc {
 				}
 				super.windowClosing(arg0);
 				frame.dispose();
+				System.exit(0);
 			}
 			
 		});
@@ -113,6 +125,7 @@ public class Irc {
 		String s = ((Sentence)(irc.sentence.jvnGetSharedObject())).read();
 		// unlock the object
 		irc.sentence.jvnUnLock();
+		irc.texLockState.setText(""+ ((JvnObjectImpl)irc.sentence).jvnGetLockState());
 		// display the read value
 		irc.data.setText(s);
 		irc.text.append(s+"\n");
@@ -140,6 +153,7 @@ public class Irc {
 		// get the value to be written from the buffer
 	    String s = irc.data.getText();
 	        	
+	   
 	    // lock the object in write mode
 		irc.sentence.jvnLockWrite();
 		
@@ -151,6 +165,30 @@ public class Irc {
 	 } catch (JvnException je) {
 		   System.out.println("IRC problem  : " + je.getMessage());
 	 }
+	}
+}
+
+ 
+
+ /**
+  * Internal class to manage user events (write) on the CHAT application
+  **/
+ class refreshListener implements ActionListener {
+	Irc irc;
+  
+	public refreshListener (Irc i) {
+        	irc = i;
+	}
+  
+  /**
+    * Management of user events
+   **/
+	public void actionPerformed (ActionEvent e) {
+		// get the value to be written from the buffer
+	    irc.texLockState.setText("LockState = " + ((JvnObjectImpl)irc.sentence).jvnGetLockState());
+	        	
+
+	 
 	}
 }
 
