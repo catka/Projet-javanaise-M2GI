@@ -89,7 +89,9 @@ public class JvnObjectImpl implements JvnObject {
 					lockState = LockStates.NL;
 				break;
 			}
-			//this.notify();
+			synchronized(this) {
+				this.notify();
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -109,9 +111,13 @@ public class JvnObjectImpl implements JvnObject {
 	 public void jvnInvalidateReader() throws JvnException {
 			System.out.println("invalidate Reader (before state = " + lockState + ")");
 			switch(lockState) {
+			case RC:
+				// TODO: NL sans wait
+				break;
 				case R:
-				case RC:
+//				case RC:
 				case RWC:
+					// TODO: this.wait() au lieu du th
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Reader");
 					PollStateThread th = new PollStateThread(this, false);
 					th.start();
@@ -138,6 +144,8 @@ public class JvnObjectImpl implements JvnObject {
 			
 			switch(lockState) {
 				case W:
+				case WC:
+				case RWC:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Writer");
 					PollStateThread th = new PollStateThread(this, true);
 					th.start();
@@ -180,6 +188,7 @@ public class JvnObjectImpl implements JvnObject {
 		            }catch(InterruptedException e){
 		                e.printStackTrace();
 		            }
+	                lockState = LockStates.NL;
 		            System.out.println("Invalidation WriterForReader complete. JvnObject lock is now: " + lockState + ".");
 					lockState = LockStates.RC;
 				break;
