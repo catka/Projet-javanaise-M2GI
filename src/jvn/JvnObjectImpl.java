@@ -22,6 +22,7 @@ public class JvnObjectImpl implements JvnObject {
 	public JvnObjectImpl(Serializable o, int joi) {
 		obj = o;
 		id = joi;
+		lockState = LockStates.W;
 	}
 
 	@Override
@@ -51,12 +52,13 @@ public class JvnObjectImpl implements JvnObject {
 
 	@Override
 	public void jvnLockWrite() throws JvnException {
+		System.out.println("[LockWrite (before) = " + lockState);
 		switch(lockState) {
 			case W:
 			case WC:
 			case RWC:
 				lockState = LockStates.W;
-			break;
+				break;
 			case NL:
 			case RC:
 			default:
@@ -85,7 +87,7 @@ public class JvnObjectImpl implements JvnObject {
 					lockState = LockStates.NL;
 				break;
 			}
-			this.notify();
+			//this.notify();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -103,62 +105,121 @@ public class JvnObjectImpl implements JvnObject {
 
 	@Override
 	public void jvnInvalidateReader() throws JvnException {
-		try {
+			System.out.println("invalidate Reader");
 			switch(lockState) {
 				case R:
+				case RC:
 				case RWC:
-					this.wait();
-					lockState = LockStates.NL;
+					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Reader");
+					PollStateThread th = new PollStateThread(this, false);
+					th.start();
+		            try{
+		                th.wait();
+		                lockState = LockStates.NL;
+		                System.out.println("New state = " + lockState);
+		            }catch(InterruptedException e){
+		                e.printStackTrace();
+		            }
+		            System.out.println("Invalidation Reader complete. JvnObject lock is now: " + lockState + ".");
 				break;
 				default:
+					System.out.println("JvnObject lock passes from " + lockState + " to " + lockState.NL);
 					lockState = LockStates.NL;
-				break;
-					
+				break;	
 			}
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 	}
 
 	@Override
 	public Serializable jvnInvalidateWriter() throws JvnException {
-		try {
+		
 			switch(lockState) {
 				case W:
-					this.wait();
-					lockState = LockStates.NL;
+					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Writer");
+					PollStateThread th = new PollStateThread(this, true);
+					th.start();
+		            try{
+		                th.wait();
+		                lockState = LockStates.NL;
+		                
+		            }catch(InterruptedException e){
+		                e.printStackTrace();
+		            }
+		            System.out.println("Invalidation Writer complete. JvnObject lock is now: " + lockState + ".");
+		            lockState = LockStates.NL;
 				break;
 				default:
+					System.out.println("JvnObject lock passes from " + lockState + " to " + lockState.NL);
 					lockState = LockStates.NL;
 				break;
 					
 			}
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		
 		return obj;
 	}
 
 	@Override
-	public Serializable jvnInvalidateWriterForReader() throws JvnException {
-		try {
+	synchronized public Serializable jvnInvalidateWriterForReader() throws JvnException {
+			
 			switch(lockState) {
 				case W:
-					this.wait();
+					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation WrtierForReader");
+					PollStateThread th = new PollStateThread(this, true);
+					th.start();
+		            try{
+		                th.wait();
+		                lockState = LockStates.NL;
+		                
+		            }catch(InterruptedException e){
+		                e.printStackTrace();
+		            }
+		            System.out.println("Invalidation WriterForReader complete. JvnObject lock is now: " + lockState + ".");
 					lockState = LockStates.RC;
 				break;
 				default:
+					System.out.println("JvnObject lock passes from " + lockState + " to " + lockState.RC);
 					lockState = LockStates.RC;
 				break;
 					
 			}
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 		return obj;
 	}
+	
+	
+	public synchronized LockStates jvnGetLockState() {
+		return lockState;
+	}
 
+}
+
+
+class PollStateThread extends Thread {
+	
+	final JvnObjectImpl jo;
+	final boolean waitInvalidWrite;
+	
+	 public PollStateThread(JvnObjectImpl jo, boolean waitInvalidWrite) {
+		 this.jo = jo;
+		 this.waitInvalidWrite = waitInvalidWrite;
+	 }
+ 
+    @Override
+    public void run() {
+            while (true) {
+            	LockStates state = jo.jvnGetLockState();
+            	
+            	if(waitInvalidWrite && state != LockStates.W) {
+            		//Can now invalidate Write lock
+            		break;
+            	}else if(!waitInvalidWrite && (state != LockStates.R && 
+			            			state != LockStates.W && 
+			            			state != LockStates.RWC )) {
+            		//Can now invalidate Read lock
+            		break;
+            	}
+                
+            }
+            synchronized(jo) {
+            	notify();
+            }
+    }
 }
