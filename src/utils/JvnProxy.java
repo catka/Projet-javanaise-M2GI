@@ -55,12 +55,12 @@ public class JvnProxy implements InvocationHandler {
 				ActionType type = method.getAnnotation(ActionType.class);
 				System.out.println("Action de type = " + type.name());
 				
-				if(type.name() == "READ") {
+				if(type.name().equals("READ")) {
 					System.out.println("Locking object for reading");
 					obj.jvnLockRead();
 					result = method.invoke(obj.jvnGetSharedObject(), args);
 					obj.jvnUnLock();
-				} else if (type.name() == "WRITE") {
+				} else if (type.name().equals("WRITE")) {
 					System.out.println("Locking object for writing");
 					obj.jvnLockWrite();
 					result = method.invoke(obj.jvnGetSharedObject(), args);
