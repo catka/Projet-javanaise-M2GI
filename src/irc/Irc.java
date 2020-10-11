@@ -219,10 +219,7 @@ public class Irc {
    **/
 	public void actionPerformed (ActionEvent e) {
 		// get the value to be written from the buffer
-	    irc.texLockState.setText("LockState = " + ((JvnObjectImpl)irc.sentence).jvnGetLockState());
-	        	
-
-	 
+	    irc.texLockState.setText("" + ((JvnObjectImpl)irc.sentence).jvnGetLockState());
 	}
 }
 
