@@ -23,6 +23,7 @@ public class Irc {
 	Frame 			frame;
 	ISentence       sentence;
 	public TextField texLockState;
+	
 
 
   /**
@@ -62,6 +63,19 @@ public class Irc {
 		Button write_button = new Button("write");
 		write_button.addActionListener(new writeListener(this));
 		frame.add(write_button);
+		Button crash_button = new Button("crash client");
+		crash_button.addActionListener(new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// Terminate the  client without noticing the coordinator
+				// In order to simulate client crash
+				frame.dispose();
+				System.exit(0);
+			}
+		});
+		frame.add(crash_button);
+		
 		frame.setSize(545,201);
 		text.setBackground(Color.black); 
 		
@@ -103,7 +117,6 @@ public class Irc {
 	public void actionPerformed (ActionEvent e) {
 		// invoke the method
 		String s = irc.sentence.read();
-
 		// display the read value
 		irc.data.setText(s);
 		irc.text.append(s+"\n");
@@ -129,6 +142,7 @@ public class Irc {
 	
 		// invoke the method
 		irc.sentence.write(s);
+		
 	}
 }
 
