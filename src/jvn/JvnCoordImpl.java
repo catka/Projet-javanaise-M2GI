@@ -186,12 +186,24 @@ public class JvnCoordImpl
 		System.out.println("WriteLocks = " + writeLocks.get(joi) + " vs Server = " + js);
 		JvnRemoteServer jsWithWriteLock = writeLocks.get(joi);
 		System.out.println("Calling invalidateWfR");
-		Serializable  jo = jsWithWriteLock.jvnInvalidateWriterForReader(joi);
-		objects.put(joi, jo); //up-to-date Jvn Object state
 		
-		//TODO: remove write locks in coord
-		writeLocks.remove(joi);
+		int retryCnt = 0;
+		final int MAX_RETRY = 3;
+		while(retryCnt <  MAX_RETRY) {
+			try {
+				Serializable  jo = jsWithWriteLock.jvnInvalidateWriterForReader(joi);
+				objects.put(joi, jo); //up-to-date Jvn Object state
+				break;
+			}catch(RemoteException re) {
+				System.out.println("Failed to fetch server for invalidation. Retrying " + retryCnt + "/" + MAX_RETRY);
+			}
+			++retryCnt;
+		}
+		if(retryCnt >= MAX_RETRY) {
+			System.out.println("Failed to fetch server. Server lost.");
+		}
 		
+		writeLocks.remove(joi);//remove write locks in coord
 		//Register new reader and return the object
 		if(!readers.contains(js)) {
 			readers.add(js);
@@ -199,7 +211,8 @@ public class JvnCoordImpl
 		if(!readers.contains(jsWithWriteLock)) {
 			readers.add(jsWithWriteLock);
 		}
-		readLocks.put(joi, readers);
+		
+		
 		
 	} else {
 	    if(!readers.contains(js)){
@@ -233,8 +246,18 @@ public class JvnCoordImpl
 	if(writeLocks != null && writeLocks.containsKey(joi) && !writeLocks.get(joi).equals(js)){
 		//A server has a write lock
 		System.out.println("Calling invalidateWriter");
-		Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
-    	objects.put(joi, retObj); //Get the last version of JvnObject
+		int retryCnt = 0;
+		final int MAX_RETRY = 3;
+		while(retryCnt <  MAX_RETRY) {
+			try {
+				Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+				objects.put(joi, retObj); //Get the last version of JvnObject
+			}catch(RemoteException re) {
+				System.out.println("Failed to fetch server for invalidation. Retrying " + retryCnt + "/" + MAX_RETRY);
+			}
+			++retryCnt;
+		}
+    	
 	}
 	
 	
