@@ -32,7 +32,7 @@ public class Irc {
   **/
 	public static void main(String argv[]) {
 	   try {
-		   ISentence jo = (ISentence) JvnProxy.newInstance(Sentence.class.getName(), "IRC");
+		   ISentence jo = (ISentence) JvnProxy.newInstance(Sentence.class, "IRC");
 		
 		   // create the graphical part of the Chat application
 		   new Irc(jo);

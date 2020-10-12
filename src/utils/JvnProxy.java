@@ -19,7 +19,7 @@ public class JvnProxy implements InvocationHandler {
 	}
 	
 	
-	public static Object newInstance(Object className, String reference) {
+	public static Object newInstance(Class classObject, String reference) {
 		JvnObject jo = null;
 		try {
 			// initialize JVN
@@ -30,21 +30,20 @@ public class JvnProxy implements InvocationHandler {
 			jo = js.jvnLookupObject(reference);
 			try {
 				if (jo == null) {
-					jo = js.jvnCreateObject((Serializable) Class.forName((String) className).getDeclaredConstructor().newInstance());
+					jo = js.jvnCreateObject((Serializable) Class.forName((String) classObject.getName()).getDeclaredConstructor().newInstance());
 					// after creation, I have a write lock on the object
 					jo.jvnUnLock();
 					js.jvnRegisterObject(reference, jo);
 				}
 			
 				return Proxy.newProxyInstance(
-					Class.forName((String) className).getClass().getClassLoader(),
-					Class.forName((String) className).getClass().getInterfaces(),
+					classObject.getClassLoader(),
+					classObject.getInterfaces(),
 					
 					new JvnProxy(jo)
 				);
 			} catch (ClassNotFoundException  e) {
 				e.printStackTrace();
-				return null;
 			} catch (InstantiationException | SecurityException | NoSuchMethodException | InvocationTargetException | IllegalArgumentException | IllegalAccessException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
