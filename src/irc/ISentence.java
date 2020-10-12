@@ -1,5 +1,6 @@
 package irc;
 
+import jvn.LockStates;
 import utils.ActionType;
 
 public interface ISentence {
@@ -8,4 +9,7 @@ public interface ISentence {
 	
 	@ActionType(name="READ")
 	public String read();
+	
+	@ActionType(name="DEBUG")
+	public LockStates getLockState();
 }

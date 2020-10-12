@@ -7,6 +7,7 @@ import java.lang.reflect.Proxy;
 
 import jvn.JvnException;
 import jvn.JvnObject;
+import jvn.JvnObjectImpl;
 import jvn.JvnServerImpl;
 
 public class JvnProxy implements InvocationHandler {
@@ -65,6 +66,9 @@ public class JvnProxy implements InvocationHandler {
 					obj.jvnLockWrite();
 					result = method.invoke(obj.jvnGetSharedObject(), args);
 					obj.jvnUnLock();
+				} else if (type.name().equals("DEBUG")) {
+					JvnObjectImpl objImpl = (JvnObjectImpl) obj;
+					return objImpl.jvnGetLockState();
 				} else {
 					result = method.invoke(obj.jvnGetSharedObject(), args);
 				}

@@ -22,7 +22,7 @@ public class Irc {
 	public TextField	data;
 	Frame 			frame;
 	ISentence       sentence;
-	public TextField texLockState;
+	public TextField textLockState;
 	
 
 
@@ -53,9 +53,10 @@ public class Irc {
 		text=new TextArea(10,60);
 		text.setEditable(false);
 		text.setForeground(Color.red);
+		text.setBackground(Color.black); 
 		frame.add(text);
 		data=new TextField(40);
-		texLockState = new TextField("LockState", 20);
+		textLockState = new TextField("LockState", 20);
 		frame.add(data);
 		Button read_button = new Button("read");
 		read_button.addActionListener(new readListener(this));
@@ -75,9 +76,10 @@ public class Irc {
 			}
 		});
 		frame.add(crash_button);
+		frame.add(textLockState);
+		textLockState.setText(sentence.getLockState().toString());
 		
 		frame.setSize(545,201);
-		text.setBackground(Color.black); 
 		
 		
 		frame.setVisible(true);
@@ -115,11 +117,13 @@ public class Irc {
   * Management of user events
   **/
 	public void actionPerformed (ActionEvent e) {
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 		// invoke the method
 		String s = irc.sentence.read();
 		// display the read value
 		irc.data.setText(s);
 		irc.text.append(s+"\n");
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 	}
 }
 
@@ -137,11 +141,13 @@ public class Irc {
     * Management of user events
    **/
 	public void actionPerformed (ActionEvent e) {
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 	   // get the value to be written from the buffer
 		String s = irc.data.getText();
 	
 		// invoke the method
 		irc.sentence.write(s);
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 		
 	}
 }

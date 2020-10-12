@@ -8,6 +8,8 @@
 
 package irc;
 
+import jvn.LockStates;
+
 public class Sentence implements java.io.Serializable, ISentence {
 	/**
 	 * 
@@ -25,6 +27,10 @@ public class Sentence implements java.io.Serializable, ISentence {
 	
 	public String read() {
 		return data;	
+	}
+	
+	public LockStates getLockState() {
+		return null;
 	}
 	
 }
