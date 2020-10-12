@@ -26,7 +26,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	public void jvnLockRead() throws JvnException {
+	public synchronized void jvnLockRead() throws JvnException {
 		switch(lockState) {
 			case RC:
 				lockState = LockStates.R;
@@ -38,6 +38,7 @@ public class JvnObjectImpl implements JvnObject {
 			case RWC:
 			break;
 			case NL:
+			default:
 				JvnServerImpl js = JvnServerImpl.jvnGetServer();
 				Serializable retObj = js.jvnLockRead(id); //Returns the up-to-date jvnObject
 				if(retObj != null) {
@@ -51,7 +52,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	public void jvnLockWrite() throws JvnException {
+	public synchronized void jvnLockWrite() throws JvnException {
 		System.out.println("[LockWrite (before) = " + lockState);
 		switch(lockState) {
 			case W:
@@ -74,7 +75,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	public void jvnUnLock() throws JvnException {
+	public synchronized void jvnUnLock() throws JvnException {
 		System.out.println(" Unlocking : " + lockState);
 		try {
 			switch(lockState) {
@@ -108,7 +109,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	 public void jvnInvalidateReader() throws JvnException {
+	 public synchronized void jvnInvalidateReader() throws JvnException {
 			System.out.println("invalidate Reader (before state = " + lockState + ")");
 			switch(lockState) {
 				case RC:
@@ -137,7 +138,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	 public Serializable jvnInvalidateWriter() throws JvnException {
+	 public synchronized Serializable jvnInvalidateWriter() throws JvnException {
 			
 			switch(lockState) {
 				case WC:
@@ -170,7 +171,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	 public Serializable jvnInvalidateWriterForReader() throws JvnException {
+	 public synchronized Serializable jvnInvalidateWriterForReader() throws JvnException {
 			
 			switch(lockState) {
 				case W:

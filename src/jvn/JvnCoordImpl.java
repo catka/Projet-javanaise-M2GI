@@ -114,7 +114,7 @@ public class JvnCoordImpl
   * @param js  : the remote reference of the JVNServer
   * @throws java.rmi.RemoteException,JvnException
   **/
-  public void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
+  public synchronized void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
     //int id = jvnGetObjectId();
     
@@ -131,7 +131,7 @@ public class JvnCoordImpl
   * @param js : the remote reference of the JVNServer
   * @throws java.rmi.RemoteException,JvnException
   **/
-  public JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
+  public synchronized JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
 	  System.out.println("jvnLooupObject");
 	  if(aliases.get(jon) != null) {
@@ -166,7 +166,7 @@ public class JvnCoordImpl
   * @return the current JVN object state
   * @throws java.rmi.RemoteException, JvnException
   **/
-   public Serializable jvnLockRead(int joi, JvnRemoteServer js)
+   public synchronized Serializable jvnLockRead(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
 	 System.out.println("[lockRead] Readerslock size = " + readLocks.get(joi));
 	
@@ -233,7 +233,7 @@ public class JvnCoordImpl
   * @return the current JVN object state
   * @throws java.rmi.RemoteException, JvnException
   **/
-   public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
+   public synchronized Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
 	   System.out.println("[lockWrite] Readerslock size = " + readLocks.get(joi).size() + ", writeLock = " + writeLocks.containsKey(joi));
 	List<JvnRemoteServer> readers = readLocks.get(joi);
@@ -295,7 +295,7 @@ public class JvnCoordImpl
 	* @param js  : the remote reference of the server
 	* @throws java.rmi.RemoteException, JvnException
 	**/
-    public void jvnTerminate(JvnRemoteServer js)
+    public synchronized void jvnTerminate(JvnRemoteServer js)
 	 throws java.rmi.RemoteException, JvnException {
     	System.out.println("A server has called jvnTerminate");
     	//Get the last JVN Object state that are write-locked by the terminating server
