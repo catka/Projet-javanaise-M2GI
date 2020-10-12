@@ -39,6 +39,11 @@ public class JvnCoordImpl
 	private static String registryId = "JvnCoord";
 	
 	
+	private Map<Integer, JvnRemoteServer> serverIndexes;
+	final int MAX_SERVER_ID = 50;
+	int lastAvailableServerID = 0;
+	
+	
 	
 	private Map<String, Integer> aliases;
 	private Map<Integer, Serializable> objects; //Contains last validated state of the object
@@ -90,6 +95,25 @@ public class JvnCoordImpl
 	public static int getJvnCoordPort() {
 		return port;
 	}
+	
+	public synchronized Integer getJvnServerId(JvnRemoteServer js) {
+		
+		for(Map.Entry<Integer, JvnRemoteServer> entry : serverIndexes.entrySet()) {
+			if(entry.getValue().equals(js)) {
+				return entry.getKey();
+			}
+		}
+		int tryCnt = 0;
+		while(serverIndexes.containsKey(lastAvailableServerID)) {
+			++lastAvailableServerID;
+			++tryCnt;
+			if(tryCnt >= MAX_SERVER_ID)return -1; //No slot available
+		}
+		serverIndexes.put(lastAvailableServerID, js);
+		return lastAvailableServerID;
+	}
+	
+	
 
 	public static String getJvnCoordRegistryId() {
 		return registryId;
