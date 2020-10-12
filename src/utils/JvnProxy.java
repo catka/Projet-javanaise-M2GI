@@ -2,6 +2,7 @@ package utils;
 
 import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
@@ -18,7 +19,7 @@ public class JvnProxy implements InvocationHandler {
 	}
 	
 	
-	public static Object newInstance(Object obj) {
+	public static Object newInstance(Object className, String reference) {
 		JvnObject jo = null;
 		try {
 			// initialize JVN
@@ -26,21 +27,28 @@ public class JvnProxy implements InvocationHandler {
 			
 			// look up the IRC object in the JVN server
 			// if not found, create it, and register it in the JVN server
-			jo = js.jvnLookupObject("IRC");
+			jo = js.jvnLookupObject(reference);
+			try {
+				if (jo == null) {
+					jo = js.jvnCreateObject((Serializable) Class.forName((String) className).getDeclaredConstructor().newInstance());
+					// after creation, I have a write lock on the object
+					jo.jvnUnLock();
+					js.jvnRegisterObject(reference, jo);
+				}
 			
-			if (jo == null) {
-				jo = js.jvnCreateObject((Serializable) obj);
-				// after creation, I have a write lock on the object
-				jo.jvnUnLock();
-				js.jvnRegisterObject("IRC", jo);
+				return Proxy.newProxyInstance(
+					Class.forName((String) className).getClass().getClassLoader(),
+					Class.forName((String) className).getClass().getInterfaces(),
+					
+					new JvnProxy(jo)
+				);
+			} catch (ClassNotFoundException  e) {
+				e.printStackTrace();
+				return null;
+			} catch (InstantiationException | SecurityException | NoSuchMethodException | InvocationTargetException | IllegalArgumentException | IllegalAccessException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			
-			return Proxy.newProxyInstance(
-				obj.getClass().getClassLoader(),
-				obj.getClass().getInterfaces(),
-				
-				new JvnProxy(jo)
-			);
 		} catch (JvnException e) {
 			e.printStackTrace();
 		}
