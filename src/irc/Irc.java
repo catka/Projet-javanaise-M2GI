@@ -25,7 +25,8 @@ public class Irc {
 	Frame 			frame;
 	ISentence       sentence;
 	public TextField textLockState;
-	
+	public TextArea		info;
+
 
 	//Debug
 	public TextArea debugTimeEllapsedText;
@@ -63,7 +64,8 @@ public class Irc {
 		sentence = jo;
 		frame=new Frame();
 		
-		frame.setLayout(new GridLayout(1,6));
+		GridLayout gl = new GridLayout(2, 6);
+		frame.setLayout(gl);
 		text=new TextArea(10,60);
 		text.setEditable(false);
 		text.setForeground(Color.red);
@@ -92,6 +94,12 @@ public class Irc {
 		frame.add(crash_button);
 		frame.add(textLockState);
 		textLockState.setText(sentence.getLockState().toString());
+		
+		info = new TextArea(10, 10);
+		info.setEditable(false);
+		info.setText("MIN=\nMAX=\nAVG=");
+		frame.add(info);
+		
 		
 		
 		Button burst_button = new Button("Burst (5 sec)");
@@ -160,6 +168,8 @@ public class Irc {
 			mean = mValues.stream().mapToLong(val -> val).average().orElse(0.0);
 			min = (min < 0)?timeEllapsed: Math.min(min, timeEllapsed);
 			max = (max < 0)?timeEllapsed: Math.max(max, timeEllapsed);
+			
+			info.setText("MIN=" + min + "\nMAX=" + max + "\nAVG=" + mean);
 			
 			try{Thread.sleep(10);}catch(InterruptedException ie) {}
 			sb.append("(ms) " + (readOrWrite?"READ":"WRITE")  + timeEllapsed + "\n");

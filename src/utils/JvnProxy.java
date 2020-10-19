@@ -61,7 +61,7 @@ public class JvnProxy implements InvocationHandler {
 		try {
 			if(method.isAnnotationPresent(ActionType.class)) {
 				ActionType type = method.getAnnotation(ActionType.class);
-				System.out.println("Action de type = " + type.name());
+				System.out.println("Action type: " + type.name());
 				
 				if(type.name().equals("READ")) {
 					System.out.println("Locking object for reading");
