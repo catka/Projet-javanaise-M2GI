@@ -15,6 +15,7 @@ import jvn.*;
 import utils.JvnProxy;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Random;
 
 
@@ -144,13 +145,28 @@ public class Irc {
 		StringBuilder sb = new StringBuilder();
 		
 		long ts = System.currentTimeMillis();
+		
+		double mean = -1.0;
+		long min = -1;
+		long max = -1;
+		int cnt = 0;
+		ArrayList<Long> mValues = new ArrayList<Long>();
+		
+		
 		while( (System.currentTimeMillis() - ts) < 5000) {
 			boolean readOrWrite = (new Random()).nextBoolean();
-			//write_button.dispatchEvent(e);
+			long timeEllapsed = (readOrWrite?performRead():performWrite());
+			mValues.add(timeEllapsed);
+			mean = mValues.stream().mapToLong(val -> val).average().orElse(0.0);
+			min = (min < 0)?timeEllapsed: Math.min(min, timeEllapsed);
+			max = (max < 0)?timeEllapsed: Math.max(max, timeEllapsed);
+			
 			try{Thread.sleep(10);}catch(InterruptedException ie) {}
-			sb.append("(ms) " + (readOrWrite?"READ":"WRITE")  + (readOrWrite?performRead():performWrite()) + "\n");
+			sb.append("(ms) " + (readOrWrite?"READ":"WRITE")  + timeEllapsed + "\n");
 			debugTimeEllapsedText.setText(sb.toString());
+			cnt++;
 		}
+		System.out.println("MAX:" + max + ", MIN: " + min + ", MEAN: " + mean);
 	}
 	
 	/**

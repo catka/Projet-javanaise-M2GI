@@ -12,10 +12,18 @@ public class BurstTests {
 	
 	public static void main(String[] args) {
 		System.out.println("TEST");
+		int threadCount = 2;
+		if(args != null && args.length > 0) {
+			try {
+				threadCount = Integer.parseInt(args[0]);
+				if(threadCount > 10)threadCount = 10;
+			}catch(Exception e) {
+				
+			}
+		}
 		
 		
-		
-		for(int i=0; i < 2; i++) {
+		for(int i=0; i < threadCount; i++) {
 			generateBurst(i);
 		}
 		//Irc.main(null);
