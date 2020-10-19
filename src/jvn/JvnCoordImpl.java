@@ -323,6 +323,10 @@ public class JvnCoordImpl
 	 throws java.rmi.RemoteException, JvnException {
     	System.out.println("A server has called jvnTerminate");
     	//Get the last JVN Object state that are write-locked by the terminating server
+    	
+    	Object obj = null;
+    	boolean hasWriteLock = false;
+    	List<Integer> listWriteLocks = new ArrayList<Integer>();
     	for(Map.Entry<Integer, JvnRemoteServer> e: writeLocks.entrySet()) {
     		if(e.getValue().equals(js) ) {
     			//Equals
@@ -330,9 +334,11 @@ public class JvnCoordImpl
     			Serializable lastObj = js.jvnInvalidateWriter(e.getKey());
     			System.out.println("Last version fetched");
     			objects.put(e.getKey(), lastObj);
+    			listWriteLocks.add(e.getKey());
     			
     		}
     	}
+    	for(Integer val : listWriteLocks)writeLocks.remove(val);
     	
     	//Remove the read locks of the terminating server
     	for(Map.Entry<Integer, List<JvnRemoteServer> > e : readLocks.entrySet()) {
@@ -343,6 +349,8 @@ public class JvnCoordImpl
     		}
     		
     	}
+    	
+    	
     	
     }
 }
