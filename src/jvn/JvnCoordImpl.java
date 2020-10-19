@@ -294,11 +294,18 @@ public class JvnCoordImpl
 					
 					
 					System.out.println("Calling invalidateReader");
-					r.jvnInvalidateReader(joi);
-					
-					processedServ.add(r);
-				} catch (RemoteException e) {
-					e.printStackTrace();
+
+					int retryCnt = 0;
+					final int MAX_RETRY = 3;
+					while(retryCnt <  MAX_RETRY) {
+						try {
+							r.jvnInvalidateReader(joi);
+							processedServ.add(r);
+						}catch(RemoteException re) {
+							System.out.println("Failed to fetch server for invalidation. Retrying " + retryCnt + "/" + MAX_RETRY);
+						}
+						++retryCnt;
+					}
 				} catch (JvnException e) {
 					e.printStackTrace();
 				}
