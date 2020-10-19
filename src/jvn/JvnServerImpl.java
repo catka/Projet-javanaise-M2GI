@@ -11,12 +11,14 @@ package jvn;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.Naming;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.*;
+import java.net.MalformedURLException;
 
 
 
@@ -45,7 +47,9 @@ public class JvnServerImpl
 	private JvnServerImpl() throws Exception {
 		super();
 		cache = new HashMap<Integer, JvnObject>();
-		coordinator = (JvnRemoteCoord) Naming.lookup(JvnCoordImpl.getJvnCoordRegistryId());
+		//startCoordinator();
+		System.out.println("getting coordinator");
+		coordinator = getCoordinator();
 	}
 	
   /**
@@ -71,9 +75,9 @@ public class JvnServerImpl
 	public  void jvnTerminate()
 	throws jvn.JvnException {
 		//Inform the coordinator that the  JnvServer is terminating
-		if(coordinator != null) {
+		if(getCoordinator() != null) {
 			try {
-				coordinator.jvnTerminate(this);
+				getCoordinator().jvnTerminate(this);
 			}catch(RemoteException re) {
 				System.out.println(re);
 			}
@@ -86,14 +90,14 @@ public class JvnServerImpl
 	* @param o : the JVN object state
 	* @throws JvnException
 	**/
-	public  JvnObject jvnCreateObject(Serializable o)
+	public JvnObject jvnCreateObject(Serializable o)
 	throws jvn.JvnException { 
 		// Allocate an id to the jvnObject
 		int joi = -1;
 		JvnObject jo = null;
-		if(coordinator != null) {
+		if(getCoordinator() != null) {
 			try {
-				joi = coordinator.jvnGetObjectId();
+				joi = getCoordinator().jvnGetObjectId();
 				jo = new JvnObjectImpl(o, joi);
 			}catch(RemoteException re) {
 				throw new JvnException(re.getMessage());
@@ -114,10 +118,10 @@ public class JvnServerImpl
 	public  void jvnRegisterObject(String jon, JvnObject jo)
 	throws jvn.JvnException {
 		// to be completed
-		if(coordinator != null) {
+		if(getCoordinator() != null) {
 			System.out.println("Registering obj '" + jon + "'");
 			try {
-				coordinator.jvnRegisterObject(jon, jo, this);
+				getCoordinator().jvnRegisterObject(jon, jo, this);
 				cache.put(jo.jvnGetObjectId(), jo); //Caching the object
 			}catch(RemoteException re) {
 				System.out.println(re);
@@ -134,16 +138,16 @@ public class JvnServerImpl
 	* @return the JVN object 
 	* @throws JvnException
 	**/
-	public  JvnObject jvnLookupObject(String jon)
+	public JvnObject jvnLookupObject(String jon)
 	throws jvn.JvnException {
     /*
      *  
      */
 		JvnObject jo = null;
-		if(coordinator != null) {
+		if(getCoordinator() != null) {
 			System.out.println("Looking up object (name = " + jon + ") ");
 			try {
-				jo = coordinator.jvnLookupObject(jon, this);
+				jo = getCoordinator().jvnLookupObject(jon, this);
 				if(jo != null) {
 					cache.put(jo.jvnGetObjectId(), jo); // caching the object
 				} else {
@@ -167,12 +171,10 @@ public class JvnServerImpl
 	**/
    public Serializable jvnLockRead(int joi)
 	 throws JvnException {
-		if(coordinator != null) {
+		if(getCoordinator() != null) {
 			System.out.println("Asking for a Read Lock of id = " + joi);
 			try {
-				
-
-				return coordinator.jvnLockRead(joi, this);
+				return getCoordinator().jvnLockRead(joi, this);
 			}catch(RemoteException re) {
 				System.out.println(re);
 			}
@@ -190,10 +192,10 @@ public class JvnServerImpl
 	**/
    public Serializable jvnLockWrite(int joi)
 	 throws JvnException {
-	   if(coordinator != null) {
+	   if(getCoordinator() != null) {
 			System.out.println("Asking for a Write Lock of id = " + joi);
 			try {
-				return coordinator.jvnLockWrite(joi, this);
+				return getCoordinator().jvnLockWrite(joi, this);
 			}catch(RemoteException re) {
 				System.out.println(re.getMessage());
 			}
@@ -214,14 +216,10 @@ public class JvnServerImpl
 	**/
   public void jvnInvalidateReader(int joi)
 	throws java.rmi.RemoteException,jvn.JvnException {
-		// to be completed 
-	  //We ask the jvnObject who has the lock to invalidate it.
-	   //The invalidate call is from the coordinator
+	  // Asks the jvnObject who has the lock to invalidate it.
+	   // The invalidate call is from the coordinator
 	   System.out.println("Invalidating Reader : id = " + joi + ". Waiting for JvnObject confirmation");
 	   cache.get(joi).jvnInvalidateReader();
-	   //System.out.println("New state for id = " + joi + " = " + newState);
-		//return newState;
-
 	};
 	    
 	/**
@@ -232,14 +230,14 @@ public class JvnServerImpl
 	**/
   public Serializable jvnInvalidateWriter(int joi)
 	throws java.rmi.RemoteException,jvn.JvnException { 
-	   //We ask the jvnObject who has the lock to invalidate it.
-	   //The invalidate call is from the coordinator
+	   // Asks the jvnObject who has the lock to invalidate it.
+	   // The invalidate call is from the coordinator
 	  
 	  if(cache != null && cache.containsKey(joi)) {
 		  System.out.println("[Serv:jvnInvalidateWriter] JvnObject lock state " + ((JvnObjectImpl)cache.get(joi)).jvnGetLockState());
 		   return cache.get(joi).jvnInvalidateWriter();
 	   }else {
-		   throw new  JvnException("Attempt to invalidate Writer on a non-cached jvnObject");
+		   throw new JvnException("Attempt to invalidate Writer on a non-cached jvnObject");
 	   }
 	};
 	
@@ -251,16 +249,49 @@ public class JvnServerImpl
 	**/
    public Serializable jvnInvalidateWriterForReader(int joi)
 	 throws java.rmi.RemoteException,jvn.JvnException { 
-		//We ask the jvnObject who has the lock to invalidate it.
-	   //The invalidate call is from the coordinator
+	   // Asks the jvnObject who has the lock to invalidate it.
+	   // The invalidate call is from the coordinator
 	   if(cache != null && cache.containsKey(joi)) {
 		   return cache.get(joi).jvnInvalidateWriterForReader();
 	   }else {
 		   throw new  JvnException("Attempt to invalidate Writer For Reader on a non-cached jvnObject");
 	   }
-	   
 	 };
 
+
+	 // Managing coordinator from server to prevent coordinator failure
+	 public JvnRemoteCoord getCoordinator() {
+		 try {
+			 if(coordinator != null) {
+				 return coordinator;
+			 }
+			return (JvnRemoteCoord) Naming.lookup(JvnCoordImpl.getJvnCoordRegistryId());
+		} catch (MalformedURLException | RemoteException | NotBoundException e) {
+			final int MAX_RETRY = 3;
+			int retry = 0;
+			while(coordinator == null && retry < MAX_RETRY) {
+				coordinator = (JvnRemoteCoord) registerCoordinator();
+				retry++;
+			}
+			return coordinator;
+		}
+	}
+	 
+	 public JvnRemoteCoord registerCoordinator() {
+		 try {
+			 	java.rmi.registry.LocateRegistry.createRegistry(JvnCoordImpl.getJvnCoordPort());
+			 	JvnRemoteCoord coordinator = JvnCoordImpl.jvnGetCoordinator();
+				Naming.rebind(JvnCoordImpl.getJvnCoordRegistryId(), coordinator);
+	            System.out.println("Binded Coordinator!");
+	            return coordinator;
+	        } catch (Exception e) {
+	            System.err.println("Server exception: " + e.toString());
+	            e.printStackTrace();
+	            System.exit(e.hashCode());
+	        }
+		 
+		 return null;
+	 }
 }
 
  

@@ -334,7 +334,7 @@ public class JvnCoordImpl
     		}
     	}
     	
-    	//Remove the read locks of the terminating server
+    	// Remove the read locks of the terminating server
     	for(Map.Entry<Integer, List<JvnRemoteServer> > e : readLocks.entrySet()) {
     		if(e.getValue() != null) {
     			if(e.getValue().contains(js)) {
