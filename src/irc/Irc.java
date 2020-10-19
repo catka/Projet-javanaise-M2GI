@@ -12,15 +12,24 @@ import java.awt.event.*;
 
 
 import jvn.*;
+import utils.JvnProxy;
+
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Random;
 
 
 public class Irc {
 	public TextArea		text;
 	public TextField	data;
 	Frame 			frame;
-	JvnObject       sentence;
-	public TextField texLockState;
+	ISentence       sentence;
+	public TextField textLockState;
+	public TextArea		info;
+
+
+	//Debug
+	public TextArea debugTimeEllapsedText;
 
 
   /**
@@ -28,28 +37,19 @@ public class Irc {
   * create a JVN object named IRC for representing the Chat application
   **/
 	public static void main(String argv[]) {
+		
+		
+		
 	   try {
-		   
-		// initialize JVN
-		JvnServerImpl js = JvnServerImpl.jvnGetServer();
+		   ISentence jo = (ISentence) JvnProxy.newInstance(Sentence.class, "IRC");
 		
-		// look up the IRC object in the JVN server
-		// if not found, create it, and register it in the JVN server
-		JvnObject jo = js.jvnLookupObject("IRC");
-		if(jo != null) {
-			//reset lockstate
-			//jo = new JvnObjectImpl(jo.jvnGetSharedObject(), jo.jvnGetObjectId(), LockStates.NL);
-			
-		}
-		
-		if (jo == null) {
-			jo = js.jvnCreateObject((Serializable) new Sentence());
-			// after creation, I have a write lock on the object
-			jo.jvnUnLock();
-			js.jvnRegisterObject("IRC", jo);
-		}
-		// create the graphical part of the Chat application
-		 new Irc(jo);
+		   // create the graphical part of the Chat application
+		   Irc mIrc = new Irc(jo);
+		   if(argv != null && argv.length > 0) {
+				//[0] Index
+				mIrc.getFrame().setTitle("Client pour test Burst n* " + argv[0]);
+				mIrc.startBurst(5000);
+			}
 	   
 	   } catch (Exception e) {
 		   System.out.println("IRC problem : " + e.toString());
@@ -60,16 +60,19 @@ public class Irc {
    * IRC Constructor
    @param jo the JVN object representing the Chat
    **/
-	public Irc(JvnObject jo) {
+	public Irc(ISentence jo) {
 		sentence = jo;
 		frame=new Frame();
-		frame.setLayout(new GridLayout(1,1));
+		
+		GridLayout gl = new GridLayout(2, 6);
+		frame.setLayout(gl);
 		text=new TextArea(10,60);
 		text.setEditable(false);
 		text.setForeground(Color.red);
+		text.setBackground(Color.black); 
 		frame.add(text);
 		data=new TextField(40);
-		texLockState = new TextField("LockState", 20);
+		textLockState = new TextField("LockState", 20);
 		frame.add(data);
 		Button read_button = new Button("read");
 		read_button.addActionListener(new readListener(this));
@@ -77,18 +80,46 @@ public class Irc {
 		Button write_button = new Button("write");
 		write_button.addActionListener(new writeListener(this));
 		frame.add(write_button);
-		frame.setSize(545,201);
-		text.setBackground(Color.black); 
-		frame.add(texLockState);
+		Button crash_button = new Button("crash client");
+		crash_button.addActionListener(new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// Terminate the  client without noticing the coordinator
+				// In order to simulate client crash
+				frame.dispose();
+				System.exit(0);
+			}
+		});
+		frame.add(crash_button);
+		frame.add(textLockState);
+		textLockState.setText(sentence.getLockState().toString());
 		
-		Button unlock_state = new Button("Unlock");
-		unlock_state.addActionListener(new unlockListener(this));
-		frame.add(unlock_state);
+		info = new TextArea(10, 10);
+		info.setEditable(false);
+		info.setText("MIN=\nMAX=\nAVG=");
+		frame.add(info);
 		
-		Button refresh_state = new Button("refresh");
-		refresh_state.addActionListener(new refreshListener(this));
-		frame.add(refresh_state);
 		
+		
+		Button burst_button = new Button("Burst (5 sec)");
+		burst_button.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				startBurst(5000);
+			}
+		});
+		
+		frame.add(burst_button);
+		
+		
+		debugTimeEllapsedText=new TextArea(10,300);
+		debugTimeEllapsedText.setEditable(false);
+		frame.add(debugTimeEllapsedText);
+		
+		
+		
+		frame.setSize(545,300);
 		
 		
 		frame.setVisible(true);
@@ -108,6 +139,76 @@ public class Irc {
 			}
 			
 		});
+		
+	}
+	
+	
+	public Frame getFrame() { return this.frame; }
+	
+	/**
+	 * For test purposes
+	 * @param ms: Time in ms to spend testing the system
+	 */
+	public void startBurst(int ms) {
+		StringBuilder sb = new StringBuilder();
+		
+		long ts = System.currentTimeMillis();
+		
+		double mean = -1.0;
+		long min = -1;
+		long max = -1;
+		int cnt = 0;
+		ArrayList<Long> mValues = new ArrayList<Long>();
+		
+		
+		while( (System.currentTimeMillis() - ts) < 5000) {
+			boolean readOrWrite = (new Random()).nextBoolean();
+			long timeEllapsed = (readOrWrite?performRead():performWrite());
+			mValues.add(timeEllapsed);
+			mean = mValues.stream().mapToLong(val -> val).average().orElse(0.0);
+			min = (min < 0)?timeEllapsed: Math.min(min, timeEllapsed);
+			max = (max < 0)?timeEllapsed: Math.max(max, timeEllapsed);
+			
+			info.setText("MIN=" + min + "\nMAX=" + max + "\nAVG=" + mean);
+			
+			try{Thread.sleep(10);}catch(InterruptedException ie) {}
+			sb.append("(ms) " + (readOrWrite?"READ":"WRITE")  + timeEllapsed + "\n");
+			debugTimeEllapsedText.setText(sb.toString());
+			cnt++;
+		}
+		System.out.println("MAX:" + max + ", MIN: " + min + ", MEAN: " + mean);
+	}
+	
+	/**
+	 * This method is for test purposes
+	 * 
+	 * @return time ms ellapsed to write 
+	 */
+	public long performWrite() {
+		long ts = System.currentTimeMillis();
+		this.textLockState.setText(this.sentence.getLockState().toString());
+	   // get the value to be written from the buffer
+		String s = this.data.getText();
+		// invoke the method
+		this.sentence.write(s);
+		this.textLockState.setText(this.sentence.getLockState().toString());
+		return System.currentTimeMillis() - ts;
+	}
+	
+	/**
+	 * This method is for test purposes
+	 * @return time ms ellapsed to read
+	 */
+	public long performRead() {
+		long ts = System.currentTimeMillis();
+		this.textLockState.setText(this.sentence.getLockState().toString());
+		// invoke the method
+		String s = this.sentence.read();
+		// display the read value
+		this.data.setText(s);
+		this.text.append(s+"\n");
+		this.textLockState.setText(this.sentence.getLockState().toString());
+		return System.currentTimeMillis() - ts;
 	}
 }
 
@@ -126,46 +227,15 @@ public class Irc {
   * Management of user events
   **/
 	public void actionPerformed (ActionEvent e) {
-	 try {
-		// lock the object in read mode
-		irc.sentence.jvnLockRead();
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 		// invoke the method
-		String s = ((Sentence)(irc.sentence.jvnGetSharedObject())).read();
-		// unlock the object
-		//irc.sentence.jvnUnLock();
-		irc.texLockState.setText(""+ ((JvnObjectImpl)irc.sentence).jvnGetLockState());
+		String s = irc.sentence.read();
 		// display the read value
 		irc.data.setText(s);
 		irc.text.append(s+"\n");
-	   } catch (JvnException je) {
-		   System.out.println("IRC problem : " + je.getMessage());
-	   }
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 	}
 }
- 
- /**
-  * Internal class to manage user events (write) on the CHAT application
-  **/
- class unlockListener implements ActionListener {
-	 Irc irc;
-	 
-	 public unlockListener (Irc i) {
-		 irc = i;
-	 }
-	 
-	 /**
-	  * Management of user events
-	  **/
-	 public void actionPerformed (ActionEvent e) {
-		 try {	
-			// unlock the object
-			irc.sentence.jvnUnLock();
-			 
-		 } catch (JvnException je) {
-			 System.out.println("IRC problem (unlockListener) : " + je.getMessage());
-		 }
-	 }
- }
 
  /**
   * Internal class to manage user events (write) on the CHAT application
@@ -181,45 +251,14 @@ public class Irc {
     * Management of user events
    **/
 	public void actionPerformed (ActionEvent e) {
-	   try {	
-		// get the value to be written from the buffer
-	    String s = irc.data.getText();
-	        	
-	   
-	    // lock the object in write mode
-		irc.sentence.jvnLockWrite();
-		
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
+	   // get the value to be written from the buffer
+		String s = irc.data.getText();
+	
 		// invoke the method
-		((Sentence)(irc.sentence.jvnGetSharedObject())).write(s);
-
-		// unlock the object
-		//irc.sentence.jvnUnLock();
+		irc.sentence.write(s);
+		irc.textLockState.setText(irc.sentence.getLockState().toString());
 		
-		
-	 } catch (JvnException je) {
-		   System.out.println("IRC problem  : " + je.getMessage());
-	 }
-	}
-}
-
- 
-
- /**
-  * Internal class to manage user events (write) on the CHAT application
-  **/
- class refreshListener implements ActionListener {
-	Irc irc;
-  
-	public refreshListener (Irc i) {
-        	irc = i;
-	}
-  
-  /**
-    * Management of user events
-   **/
-	public void actionPerformed (ActionEvent e) {
-		// get the value to be written from the buffer
-	    irc.texLockState.setText("" + ((JvnObjectImpl)irc.sentence).jvnGetLockState());
 	}
 }
 

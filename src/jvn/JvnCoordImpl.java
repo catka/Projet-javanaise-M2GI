@@ -39,6 +39,11 @@ public class JvnCoordImpl
 	private static String registryId = "JvnCoord";
 	
 	
+	private Map<Integer, JvnRemoteServer> serverIndexes;
+	final int MAX_SERVER_ID = 50;
+	int lastAvailableServerID = 0;
+	
+	
 	
 	private Map<String, Integer> aliases;
 	private Map<Integer, Serializable> objects; //Contains last validated state of the object
@@ -90,6 +95,25 @@ public class JvnCoordImpl
 	public static int getJvnCoordPort() {
 		return port;
 	}
+	
+	public synchronized Integer getJvnServerId(JvnRemoteServer js) {
+		
+		for(Map.Entry<Integer, JvnRemoteServer> entry : serverIndexes.entrySet()) {
+			if(entry.getValue().equals(js)) {
+				return entry.getKey();
+			}
+		}
+		int tryCnt = 0;
+		while(serverIndexes.containsKey(lastAvailableServerID)) {
+			++lastAvailableServerID;
+			++tryCnt;
+			if(tryCnt >= MAX_SERVER_ID)return -1; //No slot available
+		}
+		serverIndexes.put(lastAvailableServerID, js);
+		return lastAvailableServerID;
+	}
+	
+	
 
 	public static String getJvnCoordRegistryId() {
 		return registryId;
@@ -114,7 +138,7 @@ public class JvnCoordImpl
   * @param js  : the remote reference of the JVNServer
   * @throws java.rmi.RemoteException,JvnException
   **/
-  public void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
+  public synchronized void jvnRegisterObject(String jon, JvnObject jo, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
     //int id = jvnGetObjectId();
     
@@ -131,7 +155,7 @@ public class JvnCoordImpl
   * @param js : the remote reference of the JVNServer
   * @throws java.rmi.RemoteException,JvnException
   **/
-  public JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
+  public synchronized JvnObject jvnLookupObject(String jon, JvnRemoteServer js)
   throws java.rmi.RemoteException,jvn.JvnException{
 	  System.out.println("jvnLooupObject");
 	  if(aliases.get(jon) != null) {
@@ -166,7 +190,7 @@ public class JvnCoordImpl
   * @return the current JVN object state
   * @throws java.rmi.RemoteException, JvnException
   **/
-   public Serializable jvnLockRead(int joi, JvnRemoteServer js)
+   public synchronized Serializable jvnLockRead(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
 	 System.out.println("[lockRead] Readerslock size = " + readLocks.get(joi));
 	
@@ -186,12 +210,24 @@ public class JvnCoordImpl
 		System.out.println("WriteLocks = " + writeLocks.get(joi) + " vs Server = " + js);
 		JvnRemoteServer jsWithWriteLock = writeLocks.get(joi);
 		System.out.println("Calling invalidateWfR");
-		Serializable  jo = jsWithWriteLock.jvnInvalidateWriterForReader(joi);
-		objects.put(joi, jo); //up-to-date Jvn Object state
 		
-		//TODO: remove write locks in coord
-		writeLocks.remove(joi);
+		int retryCnt = 0;
+		final int MAX_RETRY = 3;
+		while(retryCnt <  MAX_RETRY) {
+			try {
+				Serializable  jo = jsWithWriteLock.jvnInvalidateWriterForReader(joi);
+				objects.put(joi, jo); //up-to-date Jvn Object state
+				break;
+			}catch(RemoteException re) {
+				System.out.println("Failed to fetch server for invalidation. Retrying " + retryCnt + "/" + MAX_RETRY);
+			}
+			++retryCnt;
+		}
+		if(retryCnt >= MAX_RETRY) {
+			System.out.println("Failed to fetch server. Server lost.");
+		}
 		
+		writeLocks.remove(joi);//remove write locks in coord
 		//Register new reader and return the object
 		if(!readers.contains(js)) {
 			readers.add(js);
@@ -199,7 +235,8 @@ public class JvnCoordImpl
 		if(!readers.contains(jsWithWriteLock)) {
 			readers.add(jsWithWriteLock);
 		}
-		readLocks.put(joi, readers);
+		
+		
 		
 	} else {
 	    if(!readers.contains(js)){
@@ -220,7 +257,7 @@ public class JvnCoordImpl
   * @return the current JVN object state
   * @throws java.rmi.RemoteException, JvnException
   **/
-   public Serializable jvnLockWrite(int joi, JvnRemoteServer js)
+   public synchronized Serializable jvnLockWrite(int joi, JvnRemoteServer js)
    throws java.rmi.RemoteException, JvnException{
 	   System.out.println("[lockWrite] Readerslock size = " + readLocks.get(joi).size() + ", writeLock = " + writeLocks.containsKey(joi));
 	List<JvnRemoteServer> readers = readLocks.get(joi);
@@ -233,8 +270,18 @@ public class JvnCoordImpl
 	if(writeLocks != null && writeLocks.containsKey(joi) && !writeLocks.get(joi).equals(js)){
 		//A server has a write lock
 		System.out.println("Calling invalidateWriter");
-		Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
-    	objects.put(joi, retObj); //Get the last version of JvnObject
+		int retryCnt = 0;
+		final int MAX_RETRY = 3;
+		while(retryCnt <  MAX_RETRY) {
+			try {
+				Serializable retObj = writeLocks.get(joi).jvnInvalidateWriter(joi);
+				objects.put(joi, retObj); //Get the last version of JvnObject
+			}catch(RemoteException re) {
+				System.out.println("Failed to fetch server for invalidation. Retrying " + retryCnt + "/" + MAX_RETRY);
+			}
+			++retryCnt;
+		}
+    	
 	}
 	
 	
@@ -247,11 +294,18 @@ public class JvnCoordImpl
 					
 					
 					System.out.println("Calling invalidateReader");
-					r.jvnInvalidateReader(joi);
-					
-					processedServ.add(r);
-				} catch (RemoteException e) {
-					e.printStackTrace();
+
+					int retryCnt = 0;
+					final int MAX_RETRY = 3;
+					while(retryCnt <  MAX_RETRY) {
+						try {
+							r.jvnInvalidateReader(joi);
+							processedServ.add(r);
+						}catch(RemoteException re) {
+							System.out.println("Failed to fetch server for invalidation. Retrying " + retryCnt + "/" + MAX_RETRY);
+						}
+						++retryCnt;
+					}
 				} catch (JvnException e) {
 					e.printStackTrace();
 				}
@@ -272,10 +326,14 @@ public class JvnCoordImpl
 	* @param js  : the remote reference of the server
 	* @throws java.rmi.RemoteException, JvnException
 	**/
-    public void jvnTerminate(JvnRemoteServer js)
+    public synchronized void jvnTerminate(JvnRemoteServer js)
 	 throws java.rmi.RemoteException, JvnException {
     	System.out.println("A server has called jvnTerminate");
     	//Get the last JVN Object state that are write-locked by the terminating server
+    	
+    	Object obj = null;
+    	boolean hasWriteLock = false;
+    	List<Integer> listWriteLocks = new ArrayList<Integer>();
     	for(Map.Entry<Integer, JvnRemoteServer> e: writeLocks.entrySet()) {
     		if(e.getValue().equals(js) ) {
     			//Equals
@@ -283,9 +341,11 @@ public class JvnCoordImpl
     			Serializable lastObj = js.jvnInvalidateWriter(e.getKey());
     			System.out.println("Last version fetched");
     			objects.put(e.getKey(), lastObj);
+    			listWriteLocks.add(e.getKey());
     			
     		}
     	}
+    	for(Integer val : listWriteLocks)writeLocks.remove(val);
     	
     	//Remove the read locks of the terminating server
     	for(Map.Entry<Integer, List<JvnRemoteServer> > e : readLocks.entrySet()) {
@@ -296,6 +356,8 @@ public class JvnCoordImpl
     		}
     		
     	}
+    	
+    	
     	
     }
 }

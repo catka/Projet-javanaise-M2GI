@@ -38,6 +38,7 @@ public class JvnObjectImpl implements JvnObject {
 			case RWC:
 			break;
 			case NL:
+			default:
 				JvnServerImpl js = JvnServerImpl.jvnGetServer();
 				Serializable retObj = js.jvnLockRead(id); //Returns the up-to-date jvnObject
 				if(retObj != null) {
@@ -74,7 +75,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	public void jvnUnLock() throws JvnException {
+	public synchronized void jvnUnLock() throws JvnException {
 		System.out.println(" Unlocking : " + lockState);
 		try {
 			switch(lockState) {
@@ -89,9 +90,7 @@ public class JvnObjectImpl implements JvnObject {
 					lockState = LockStates.NL;
 				break;
 			}
-			synchronized(this) {
-				this.notify();
-			}
+			this.notify();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -108,7 +107,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	 public void jvnInvalidateReader() throws JvnException {
+	 public synchronized void jvnInvalidateReader() throws JvnException {
 			System.out.println("invalidate Reader (before state = " + lockState + ")");
 			switch(lockState) {
 				case RC:
@@ -119,9 +118,7 @@ public class JvnObjectImpl implements JvnObject {
 				case RWC:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Reader");
 		            try{
-		            	synchronized(this) {
-		            		this.wait();
-		            	}
+		            	this.wait();
 		                lockState = LockStates.NL;
 		                System.out.println("New state = " + lockState);
 		            }catch(InterruptedException e){
@@ -137,7 +134,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	 public Serializable jvnInvalidateWriter() throws JvnException {
+	 public synchronized Serializable jvnInvalidateWriter() throws JvnException {
 			
 			switch(lockState) {
 				case WC:
@@ -148,9 +145,7 @@ public class JvnObjectImpl implements JvnObject {
 				case RWC:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation Writer");
 		            try{
-		            	synchronized(this) {
-		            		this.wait();
-		            	}
+		            	this.wait();
 		                lockState = LockStates.NL;
 		                
 		            }catch(InterruptedException e){
@@ -170,15 +165,13 @@ public class JvnObjectImpl implements JvnObject {
 	}
 
 	@Override
-	 public Serializable jvnInvalidateWriterForReader() throws JvnException {
+	 public synchronized Serializable jvnInvalidateWriterForReader() throws JvnException {
 			
 			switch(lockState) {
 				case W:
 					System.out.println("JvnObject lock is: " + lockState + ". Waiting for invalidation WrtierForReader");
 		            try{
-		            	synchronized(this) {
-		            		this.wait();
-		            	}
+		            	this.wait();
 		            }catch(InterruptedException e){
 		                e.printStackTrace();
 		            }
@@ -196,7 +189,7 @@ public class JvnObjectImpl implements JvnObject {
 	}
 	
 	
-	public synchronized LockStates jvnGetLockState() {
+	public  LockStates jvnGetLockState() {
 		return lockState;
 	}
 
